@@ -375,6 +375,20 @@
       object-fit: cover;
       display: block;
       pointer-events: none; /* lascia il click alla card */
+      background: #090d1a;
+    }
+
+    /* Rimuove qualsiasi pulsante di riproduzione, triangolo o controllo nativo (iOS Safari, Android Chrome, ecc.) */
+    .video-card video::-webkit-media-controls,
+    .video-card video::-webkit-media-controls-start-playback-button,
+    .video-card video::-webkit-media-controls-play-button,
+    .video-card video::-webkit-media-controls-panel,
+    .video-card video::-webkit-media-controls-enclosure {
+      display: none !important;
+      -webkit-appearance: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
     }
 
     /* Badge "● VIDEO" in alto a destra come nel reference */
@@ -827,40 +841,52 @@
 
       if (hasVideo) {
         const videoEl = document.createElement("video");
-        videoEl.src = product.video;
-        videoEl.muted = true;
-        videoEl.defaultMuted = true;
-        videoEl.loop = true;
-        videoEl.playsInline = true;
+        videoEl.setAttribute("muted", "");
         videoEl.setAttribute("playsinline", "");
         videoEl.setAttribute("webkit-playsinline", "");
-        videoEl.setAttribute("muted", "");
+        videoEl.setAttribute("x5-playsinline", "");
+        videoEl.setAttribute("autoplay", "");
+        videoEl.setAttribute("loop", "");
+        videoEl.setAttribute("preload", "auto");
+        videoEl.setAttribute("disablepictureinpicture", "");
+        videoEl.setAttribute("disableremoteplayback", "");
+        videoEl.muted = true;
+        videoEl.defaultMuted = true;
+        videoEl.playsInline = true;
         videoEl.autoplay = true;
-        videoEl.preload = "auto";
+        videoEl.loop = true;
+        videoEl.src = product.video;
 
-        const tryPlay = () => {
+        const forcePlay = () => {
+          videoEl.muted = true;
           const promise = videoEl.play();
           if (promise !== undefined) {
             promise.catch(() => {});
           }
         };
 
-        videoEl.addEventListener("loadedmetadata", tryPlay);
-        videoEl.addEventListener("canplay", tryPlay);
+        videoEl.addEventListener("loadedmetadata", forcePlay);
+        videoEl.addEventListener("loadeddata", forcePlay);
+        videoEl.addEventListener("canplay", forcePlay);
+        videoEl.addEventListener("canplaythrough", forcePlay);
+        videoEl.addEventListener("pause", () => {
+          if (!modal.classList.contains("open")) {
+            forcePlay();
+          }
+        });
 
         if ("IntersectionObserver" in window) {
           const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
               if (entry.isIntersecting) {
-                tryPlay();
-              } else {
-                videoEl.pause();
+                forcePlay();
               }
             });
-          }, { threshold: 0.15 });
+          }, { threshold: 0.05 });
           observer.observe(videoEl);
         }
 
+        forcePlay();
         card.appendChild(videoEl);
 
         const badge = document.createElement("div");
@@ -898,6 +924,19 @@
 
       return card;
     }
+
+    /* Avvia tutti i video in loop continuo al primo tocco o scroll (supera i blocchi low-power di iOS Safari e Chrome) */
+    function wakeAllCardVideos() {
+      document.querySelectorAll(".video-card video").forEach(v => {
+        v.muted = true;
+        const p = v.play();
+        if (p !== undefined) p.catch(() => {});
+      });
+    }
+
+    ["touchstart", "touchend", "scroll", "click", "mousedown"].forEach(evt => {
+      window.addEventListener(evt, wakeAllCardVideos, { passive: true, capture: true });
+    });
 
     function renderAsh(filter) {
       ashGrid.innerHTML = "";

@@ -277,6 +277,17 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      pointer-events: none;
+    }
+
+    .prod-thumb-wrap video::-webkit-media-controls,
+    .prod-thumb-wrap video::-webkit-media-controls-start-playback-button,
+    .prod-thumb-wrap video::-webkit-media-controls-play-button {
+      display: none !important;
+      -webkit-appearance: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
     }
 
     .prod-details {
@@ -1128,7 +1139,7 @@
         const videoSrc = p.video ? (p.video.startsWith("http") || p.video.startsWith("blob:") || p.video.startsWith("data:") ? p.video : `/${p.video}`) : "";
         card.innerHTML = `
           <div class="prod-thumb-wrap">
-            ${videoSrc ? `<video src="${videoSrc}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:0.6rem;">NO VIDEO</div>`}
+            ${videoSrc ? `<video src="${videoSrc}" autoplay muted loop playsinline webkit-playsinline disablepictureinpicture disableremoteplayback></video>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:0.6rem;">NO VIDEO</div>`}
           </div>
           <div class="prod-details">
             <div class="prod-badges">
