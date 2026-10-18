@@ -677,11 +677,23 @@
           </svg>
           Nuovo Prodotto
         </button>
-        <button class="btn btn-secondary" id="btnSyncVideos">
+        <button class="btn btn-secondary" onclick="loadData(true)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 2v6h-6M3 12a9 9 0 0115.36-6.36L21 8M3 22v-6h6M21 12a9 9 0 01-15.36 6.36L3 16"/>
           </svg>
-          Sincronizza Cartelle
+          Ricarica Dati
+        </button>
+        <button class="btn btn-secondary" onclick="exportDataJson()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Esporta data.json
+        </button>
+        <button class="btn btn-secondary" onclick="resetToDefaults()" style="color:var(--gold);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0zm9-4v4l3 3"/>
+          </svg>
+          Ripristina Predefiniti
         </button>
       </div>
 
@@ -706,6 +718,12 @@
             <path d="M12 5v14M5 12h14"/>
           </svg>
           Nuova Sottocategoria
+        </button>
+        <button class="btn btn-secondary" onclick="resetCategoriesOnly()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0zm9-4v4l3 3"/>
+          </svg>
+          Ripristina 5 Sottocategorie ASH
         </button>
       </div>
 
@@ -778,9 +796,10 @@
         <div class="form-group">
           <label class="form-label">File Video (.MP4 / .MOV / .WEBM)</label>
           
-          <div style="display:flex; gap:8px; margin-bottom:8px;">
-            <button type="button" class="btn btn-secondary btn-small" id="btnSourceUpload" onclick="setVideoSourceMode('upload')">Carica da Telefono / PC</button>
-            <button type="button" class="btn btn-secondary btn-small" id="btnSourceExisting" onclick="setVideoSourceMode('existing')">Scegli già presente</button>
+          <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-small" id="btnSourceUpload" onclick="setVideoSourceMode('upload')">Carica File</button>
+            <button type="button" class="btn btn-secondary btn-small" id="btnSourceExisting" onclick="setVideoSourceMode('existing')">Video Preesistente</button>
+            <button type="button" class="btn btn-secondary btn-small" id="btnSourceManual" onclick="setVideoSourceMode('manual')">Percorso / URL</button>
           </div>
 
           <!-- Upload mode -->
@@ -794,9 +813,14 @@
 
           <!-- Existing file mode -->
           <div id="videoExistingBox" style="display:none;">
-            <select id="existingVideoSelect" class="select-box">
+            <select id="existingVideoSelect" class="select-box" onchange="handleExistingVideoChange(this.value)">
               <option value="">Seleziona un video trovato sul server...</option>
             </select>
+          </div>
+
+          <!-- Manual URL/Path mode -->
+          <div id="videoManualBox" style="display:none;">
+            <input type="text" id="manualVideoInput" class="input-text" placeholder="es. videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4" oninput="document.getElementById('prodVideoPath').value = this.value" />
           </div>
 
           <input type="hidden" id="prodVideoPath" />
@@ -848,17 +872,17 @@
 
   <!-- ════════════ JAVASCRIPT LOGIC ════════════ -->
   <script>
-    const DEFAULT_ASH_SUBCATS = [
-      { id: "static", name: "STATIC" },
-      { id: "fresh-frozen", name: "FRESH FROZEN" },
-      { id: "dry-sift", name: "DRY SIFT" },
-      { id: "mousse", name: "MOUSSE" },
-      { id: "work", name: "WORK" }
-    ];
+    const STORE_KEY = "topshelf_store_v1";
 
-    let appData = {
+    const DEFAULT_DATA = {
       categories: {
-        ash: [...DEFAULT_ASH_SUBCATS],
+        ash: [
+          { id: "static", name: "STATIC" },
+          { id: "fresh-frozen", name: "FRESH FROZEN" },
+          { id: "dry-sift", name: "DRY SIFT" },
+          { id: "mousse", name: "MOUSSE" },
+          { id: "work", name: "WORK" }
+        ],
         weed: []
       },
       products: [
@@ -880,10 +904,49 @@
         }
       ]
     };
+
+    let appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
     let currentMacro = "ash";
     let videoSourceMode = "upload";
 
-    // Password di accesso Admin (predefinita: topshelf03 oppure milano03)
+    // BroadcastChannel per sincronizzazione istantanea tra schede
+    const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("topshelf_sync_bus") : null;
+    if (syncChannel) {
+      syncChannel.onmessage = (event) => {
+        if (event.data && event.data.data) {
+          appData = event.data.data;
+          renderProducts();
+          renderCategories();
+          populateFilterSelect();
+          updateSubcatOptions(currentMacro);
+        }
+      };
+    }
+
+    // Storage event per sincronizzazione tra finestre/schede
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORE_KEY && e.newValue) {
+        try {
+          appData = JSON.parse(e.newValue);
+          renderProducts();
+          renderCategories();
+          populateFilterSelect();
+          updateSubcatOptions(currentMacro);
+        } catch (err) {}
+      }
+    });
+
+    function saveStore(data) {
+      appData = data;
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+      } catch (e) {}
+      if (syncChannel) {
+        try { syncChannel.postMessage({ type: "UPDATE", data: appData }); } catch(e) {}
+      }
+    }
+
+    // Passwords di accesso Admin
     const VALID_PASSWORDS = ["topshelf03", "milano03", "tpmilano03"];
 
     function checkAuth() {
@@ -928,40 +991,101 @@
       }
     }
 
-    function getAdminAuthHeaders() {
-      const pass = sessionStorage.getItem("topshelf_admin_pass") || "topshelf03";
-      return { "X-Admin-Password": pass };
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2800);
     }
 
-    /* ── FETCH DATA ── */
-    async function loadData() {
-      try {
-        let res = await fetch("/api/data");
-        if (!res.ok) res = await fetch("/data.json");
-        if (!res.ok) res = await fetch("data.json");
-        if (res.ok) {
-          const remoteData = await res.json();
-          if (remoteData.categories && remoteData.categories.ash && remoteData.categories.ash.length > 0) {
-            appData.categories = remoteData.categories;
-          }
-          if (remoteData.products) {
-            appData.products = remoteData.products;
-          }
-        }
-      } catch (err) {
+    /* ── FETCH & SYNC DATA ── */
+    async function loadData(forceNetwork = false) {
+      let stored = null;
+      if (!forceNetwork) {
         try {
-          const res2 = await fetch("data.json");
-          if (res2.ok) {
-            const remoteData2 = await res2.json();
-            if (remoteData2.categories) appData.categories = remoteData2.categories;
-            if (remoteData2.products) appData.products = remoteData2.products;
+          const raw = localStorage.getItem(STORE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.categories && Array.isArray(parsed.products)) {
+              const hasAsh = parsed.categories.ash && parsed.categories.ash.length > 0;
+              const hasProds = parsed.products.length > 0;
+              if (hasAsh || hasProds) {
+                stored = parsed;
+              }
+            }
           }
-        } catch (e2) {}
+        } catch (e) {}
       }
+
+      if (stored) {
+        appData = stored;
+      } else {
+        try {
+          let res = await fetch("/data.json?t=" + Date.now());
+          if (!res.ok) res = await fetch("/api/data");
+          if (res.ok) {
+            const remoteData = await res.json();
+            if (remoteData && remoteData.categories) {
+              appData = remoteData;
+              saveStore(appData);
+            }
+          }
+        } catch (err) {}
+      }
+
+      // Garanzie di fallback se le strutture sono vuote
+      if (!appData.categories) appData.categories = { ash: [], weed: [] };
+      if (!appData.categories.ash || appData.categories.ash.length === 0) {
+        appData.categories.ash = JSON.parse(JSON.stringify(DEFAULT_DATA.categories.ash));
+        saveStore(appData);
+      }
+      if (!Array.isArray(appData.products)) {
+        appData.products = [];
+      }
+      if (appData.products.length === 0 && !localStorage.getItem("topshelf_cleared_by_user")) {
+        appData.products = JSON.parse(JSON.stringify(DEFAULT_DATA.products));
+        saveStore(appData);
+      }
+
       renderProducts();
       renderCategories();
       populateFilterSelect();
       updateSubcatOptions(currentMacro);
+      if (forceNetwork) showToast("Dati ricaricati con successo!");
+    }
+
+    function resetToDefaults() {
+      if (!confirm("Vuoi ripristinare i dati iniziali di fabbrica (2 prodotti e 5 sottocategorie ASH)?")) return;
+      localStorage.removeItem("topshelf_cleared_by_user");
+      appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      saveStore(appData);
+      renderProducts();
+      renderCategories();
+      populateFilterSelect();
+      updateSubcatOptions(currentMacro);
+      showToast("Ripristinati dati predefiniti!");
+    }
+
+    function resetCategoriesOnly() {
+      if (!confirm("Ripristinare le 5 sottocategorie ASH standard (STATIC, FRESH FROZEN, DRY SIFT, MOUSSE, WORK)?")) return;
+      appData.categories.ash = JSON.parse(JSON.stringify(DEFAULT_DATA.categories.ash));
+      saveStore(appData);
+      renderCategories();
+      populateFilterSelect();
+      updateSubcatOptions(currentMacro);
+      showToast("Sottocategorie ASH ripristinate!");
+    }
+
+    function exportDataJson() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "data.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("File data.json scaricato!");
     }
 
     /* ── TABS ── */
@@ -977,13 +1101,13 @@
     /* ── RENDER PRODUCTS ── */
     function renderProducts() {
       const container = document.getElementById("productsContainer");
-      const search = document.getElementById("searchStrain").value.toLowerCase().trim();
-      const filterSub = document.getElementById("filterSubcatSelect").value;
+      const search = (document.getElementById("searchStrain")?.value || "").toLowerCase().trim();
+      const filterSub = document.getElementById("filterSubcatSelect")?.value || "all";
 
       container.innerHTML = "";
 
-      const filtered = appData.products.filter(p => {
-        const matchSearch = p.strain.toLowerCase().includes(search);
+      const filtered = (appData.products || []).filter(p => {
+        const matchSearch = (p.strain || "").toLowerCase().includes(search);
         const matchSub = filterSub === "all" || p.subcategory === filterSub;
         return matchSearch && matchSub;
       });
@@ -991,7 +1115,8 @@
       if (filtered.length === 0) {
         container.innerHTML = `
           <div style="text-align:center; padding:50px 16px; color:var(--text-dim);">
-            <p style="font-family:var(--font-disp); font-size:0.9rem; font-weight:800; letter-spacing:1px;">NESSUN PRODOTTO TROVATO</p>
+            <p style="font-family:var(--font-disp); font-size:0.9rem; font-weight:800; letter-spacing:1px;">NESSUN PRODOTTO PRESENTE</p>
+            <p style="font-size:0.75rem; margin-top:6px; opacity:0.7;">Clicca su "+ NUOVO PRODOTTO" o "RIPRISTINA PREDEFINITI"</p>
           </div>
         `;
         return;
@@ -1000,17 +1125,18 @@
       filtered.forEach(p => {
         const card = document.createElement("div");
         card.className = "prod-card";
+        const videoSrc = p.video ? (p.video.startsWith("http") || p.video.startsWith("blob:") || p.video.startsWith("data:") ? p.video : `/${p.video}`) : "";
         card.innerHTML = `
           <div class="prod-thumb-wrap">
-            <video src="/${p.video}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>
+            ${videoSrc ? `<video src="${videoSrc}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:0.6rem;">NO VIDEO</div>`}
           </div>
           <div class="prod-details">
             <div class="prod-badges">
-              <span class="badge-cat">${p.category.toUpperCase()}</span>
+              <span class="badge-cat">${(p.category || 'ASH').toUpperCase()}</span>
               ${p.subcategory ? `<span class="badge-sub">${p.subcategory.toUpperCase()}</span>` : ""}
             </div>
             <div class="prod-title">${p.strain}</div>
-            <div class="prod-path">${p.video}</div>
+            <div class="prod-path">${p.video || 'Nessun file video collegato'}</div>
           </div>
           <div class="prod-actions">
             <button class="btn btn-secondary btn-small" onclick="openEditProduct('${p.id}')">Modifica</button>
@@ -1021,35 +1147,39 @@
       });
     }
 
-    document.getElementById("searchStrain").addEventListener("input", renderProducts);
-    document.getElementById("filterSubcatSelect").addEventListener("change", renderProducts);
+    document.getElementById("searchStrain")?.addEventListener("input", renderProducts);
+    document.getElementById("filterSubcatSelect")?.addEventListener("change", renderProducts);
 
     function populateFilterSelect() {
       const sel = document.getElementById("filterSubcatSelect");
+      if (!sel) return;
+      const currentVal = sel.value;
       sel.innerHTML = `<option value="all">Tutte le categorie</option>`;
-      (appData.categories.ash || []).forEach(c => {
+      (appData.categories?.ash || []).forEach(c => {
         sel.innerHTML += `<option value="${c.id}">ASH - ${c.name}</option>`;
       });
-      (appData.categories.weed || []).forEach(c => {
+      (appData.categories?.weed || []).forEach(c => {
         sel.innerHTML += `<option value="${c.id}">WEED - ${c.name}</option>`;
       });
+      if (currentVal) sel.value = currentVal;
     }
 
     /* ── RENDER CATEGORIES ── */
     function renderCategories() {
       const ashList = document.getElementById("ashSubcategoriesList");
       const weedList = document.getElementById("weedSubcategoriesList");
+      if (!ashList || !weedList) return;
       ashList.innerHTML = "";
       weedList.innerHTML = "";
 
-      const ashCats = appData.categories.ash || [];
-      const weedCats = appData.categories.weed || [];
+      const ashCats = appData.categories?.ash || [];
+      const weedCats = appData.categories?.weed || [];
 
       document.getElementById("ashCatCount").textContent = `${ashCats.length} categorie`;
       document.getElementById("weedCatCount").textContent = `${weedCats.length} categorie`;
 
       ashCats.forEach(c => {
-        const count = appData.products.filter(p => p.category === "ash" && p.subcategory === c.id).length;
+        const count = (appData.products || []).filter(p => p.category === "ash" && p.subcategory === c.id).length;
         const row = document.createElement("div");
         row.className = "cat-row";
         row.innerHTML = `
@@ -1066,7 +1196,7 @@
       });
 
       weedCats.forEach(c => {
-        const count = appData.products.filter(p => p.category === "weed" && p.subcategory === c.id).length;
+        const count = (appData.products || []).filter(p => p.category === "weed" && p.subcategory === c.id).length;
         const row = document.createElement("div");
         row.className = "cat-row";
         row.innerHTML = `
@@ -1086,8 +1216,8 @@
     /* ── PRODUCT MODAL & ACTIONS ── */
     function selectMacroCat(cat) {
       currentMacro = cat;
-      document.getElementById("radioAsh").classList.toggle("active", cat === "ash");
-      document.getElementById("radioWeed").classList.toggle("active", cat === "weed");
+      document.getElementById("radioAsh")?.classList.toggle("active", cat === "ash");
+      document.getElementById("radioWeed")?.classList.toggle("active", cat === "weed");
       updateSubcatOptions(cat);
     }
 
@@ -1097,7 +1227,7 @@
       select.innerHTML = "";
       const cats = (appData.categories && appData.categories[cat] && appData.categories[cat].length > 0)
         ? appData.categories[cat]
-        : (cat === "ash" ? DEFAULT_ASH_SUBCATS : []);
+        : (cat === "ash" ? DEFAULT_DATA.categories.ash : []);
 
       if (cats.length === 0) {
         select.innerHTML = `<option value="">Nessuna sottocategoria (Generica)</option>`;
@@ -1116,35 +1246,61 @@
       videoSourceMode = mode;
       document.getElementById("videoUploadBox").style.display = mode === "upload" ? "block" : "none";
       document.getElementById("videoExistingBox").style.display = mode === "existing" ? "block" : "none";
-      document.getElementById("btnSourceUpload").classList.toggle("btn-primary", mode === "upload");
-      document.getElementById("btnSourceExisting").classList.toggle("btn-primary", mode === "existing");
+      document.getElementById("videoManualBox").style.display = mode === "manual" ? "block" : "none";
+
+      document.getElementById("btnSourceUpload")?.classList.toggle("btn-primary", mode === "upload");
+      document.getElementById("btnSourceExisting")?.classList.toggle("btn-primary", mode === "existing");
+      document.getElementById("btnSourceManual")?.classList.toggle("btn-primary", mode === "manual");
+
       if (mode === "existing") loadExistingVideos();
     }
 
+    function handleExistingVideoChange(val) {
+      document.getElementById("prodVideoPath").value = val;
+    }
+
     async function loadExistingVideos() {
+      const sel = document.getElementById("existingVideoSelect");
+      sel.innerHTML = `<option value="">Seleziona un video...</option>`;
+      
+      // Aggiungi video noti dai prodotti attuali
+      const known = new Set([
+        "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4",
+        "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4"
+      ]);
+      (appData.products || []).forEach(p => { if (p.video) known.add(p.video); });
+      
       try {
         const res = await fetch("/api/available-videos");
-        const list = await res.json();
-        const sel = document.getElementById("existingVideoSelect");
-        sel.innerHTML = `<option value="">Seleziona un video...</option>`;
-        list.forEach(v => {
-          sel.innerHTML += `<option value="${v}">${v}</option>`;
-        });
+        if (res.ok) {
+          const list = await res.json();
+          list.forEach(v => known.add(v));
+        }
       } catch (e) {}
+
+      known.forEach(v => {
+        sel.innerHTML += `<option value="${v}">${v}</option>`;
+      });
     }
 
     function handleFileSelect(input) {
       if (input.files && input.files[0]) {
-        document.getElementById("videoFileNameDisplay").textContent = `Selezionato: ${input.files[0].name}`;
+        const file = input.files[0];
+        document.getElementById("videoFileNameDisplay").textContent = `Selezionato: ${file.name}`;
+        // Costruisci percorso atteso per la convenzione della cartella
+        const subcat = document.getElementById("prodSubcat")?.value || "static";
+        const cat = currentMacro || "ash";
+        document.getElementById("prodVideoPath").value = `videos/${cat}/${subcat}/${file.name}`;
       }
     }
 
-    document.getElementById("btnOpenNewProduct").addEventListener("click", () => {
+    document.getElementById("btnOpenNewProduct")?.addEventListener("click", () => {
       document.getElementById("productModalTitle").textContent = "NUOVO PRODOTTO";
       document.getElementById("editProdId").value = "";
       document.getElementById("prodStrain").value = "";
       document.getElementById("prodTag").value = "";
       document.getElementById("prodVideoPath").value = "";
+      document.getElementById("manualVideoInput").value = "";
       document.getElementById("videoFileInput").value = "";
       document.getElementById("videoFileNameDisplay").textContent = "Supporta MP4, WebM, MOV";
       selectMacroCat("ash");
@@ -1153,19 +1309,17 @@
     });
 
     function openEditProduct(id) {
-      const p = appData.products.find(x => x.id === id);
+      const p = (appData.products || []).find(x => x.id === id);
       if (!p) return;
       document.getElementById("productModalTitle").textContent = "MODIFICA PRODOTTO";
       document.getElementById("editProdId").value = p.id;
       document.getElementById("prodStrain").value = p.strain;
       document.getElementById("prodTag").value = p.tag || "";
       document.getElementById("prodVideoPath").value = p.video || "";
-      selectMacroCat(p.category);
-      updateSubcatOptions(p.category, p.subcategory);
-      setVideoSourceMode("existing");
-      loadExistingVideos().then(() => {
-        document.getElementById("existingVideoSelect").value = p.video;
-      });
+      document.getElementById("manualVideoInput").value = p.video || "";
+      selectMacroCat(p.category || "ash");
+      updateSubcatOptions(p.category || "ash", p.subcategory);
+      setVideoSourceMode("manual");
       document.getElementById("productModal").classList.add("open");
     }
 
@@ -1173,7 +1327,7 @@
       document.getElementById("productModal").classList.remove("open");
     }
 
-    document.getElementById("productForm").addEventListener("submit", async (e) => {
+    document.getElementById("productForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const saveBtn = document.getElementById("btnSaveProduct");
       saveBtn.disabled = true;
@@ -1184,62 +1338,74 @@
       const tag = document.getElementById("prodTag").value.trim();
       const subcat = document.getElementById("prodSubcat").value;
       const fileInput = document.getElementById("videoFileInput");
+      let videoPath = document.getElementById("prodVideoPath").value.trim();
+
+      if (!videoPath && fileInput.files && fileInput.files[0]) {
+        videoPath = `videos/${currentMacro}/${subcat}/${fileInput.files[0].name}`;
+      }
 
       try {
         if (editId) {
           // UPDATE
-          let videoPath = document.getElementById("prodVideoPath").value;
-          if (videoSourceMode === "existing") {
-            videoPath = document.getElementById("existingVideoSelect").value;
-          } else if (fileInput.files.length > 0) {
-            // Upload new file
-            const fd = new FormData();
-            fd.append("video", fileInput.files[0]);
-            fd.append("category", currentMacro);
-            fd.append("subcategory", subcat);
-            const upRes = await fetch("/api/upload", { method: "POST", body: fd });
-            const upData = await upRes.json();
-            if (upData.path) videoPath = upData.path;
-          }
+          const idx = appData.products.findIndex(x => x.id === editId);
+          if (idx !== -1) {
+            appData.products[idx] = {
+              ...appData.products[idx],
+              category: currentMacro,
+              subcategory: subcat,
+              strain: strain,
+              tag: tag || subcat.toUpperCase(),
+              video: videoPath
+            };
+            saveStore(appData);
 
-          const res = await fetch(`/api/products/${editId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ strain, tag, category: currentMacro, subcategory: subcat, video: videoPath })
-          });
-          if (res.ok) {
+            // Server background call se attivo
+            fetch(`/api/products/${editId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ strain, tag, category: currentMacro, subcategory: subcat, video: videoPath })
+            }).catch(() => {});
+
             showToast("Prodotto aggiornato!");
             closeProductModal();
-            loadData();
+            renderProducts();
+            renderCategories();
           }
         } else {
           // CREATE
-          if (videoSourceMode === "upload" && fileInput.files.length > 0) {
+          const newId = "prod_" + Date.now();
+          const newProd = {
+            id: newId,
+            category: currentMacro,
+            subcategory: subcat,
+            strain: strain,
+            tag: tag || subcat.toUpperCase(),
+            video: videoPath
+          };
+          appData.products.unshift(newProd);
+          saveStore(appData);
+
+          // Server background upload se presente file e server attivo
+          if (fileInput.files && fileInput.files.length > 0) {
             const fd = new FormData();
             fd.append("video_file", fileInput.files[0]);
             fd.append("category", currentMacro);
             fd.append("subcategory", subcat);
             fd.append("strain", strain);
             fd.append("tag", tag);
-            const res = await fetch("/api/products", { method: "POST", body: fd });
-            if (res.ok) {
-              showToast("Prodotto creato con successo!");
-              closeProductModal();
-              loadData();
-            }
+            fetch("/api/products", { method: "POST", body: fd }).catch(() => {});
           } else {
-            const videoPath = document.getElementById("existingVideoSelect").value;
-            const res = await fetch("/api/products", {
+            fetch("/api/products", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ strain, tag, category: currentMacro, subcategory: subcat, video: videoPath })
-            });
-            if (res.ok) {
-              showToast("Prodotto creato!");
-              closeProductModal();
-              loadData();
-            }
+              body: JSON.stringify(newProd)
+            }).catch(() => {});
           }
+
+          showToast("Prodotto creato con successo!");
+          closeProductModal();
+          renderProducts();
+          renderCategories();
         }
       } catch (err) {
         showToast("Errore durante il salvataggio");
@@ -1249,40 +1415,22 @@
       }
     });
 
-    async function deleteProduct(id) {
+    function deleteProduct(id) {
       if (!confirm("Sei sicuro di voler eliminare questo prodotto?")) return;
-      const deleteFile = confirm("Vuoi eliminare anche il file video dal computer?");
-      try {
-        const res = await fetch(`/api/products/${id}?delete_file=${deleteFile ? 1 : 0}`, { method: "DELETE" });
-        if (res.ok) {
-          showToast("Prodotto eliminato");
-          loadData();
-        }
-      } catch (e) {
-        showToast("Errore durante l'eliminazione");
+      appData.products = (appData.products || []).filter(p => p.id !== id);
+      if (appData.products.length === 0) {
+        localStorage.setItem("topshelf_cleared_by_user", "true");
       }
+      saveStore(appData);
+
+      fetch(`/api/products/${id}`, { method: "DELETE" }).catch(() => {});
+      showToast("Prodotto eliminato");
+      renderProducts();
+      renderCategories();
     }
 
-    /* ── AUTO SYNC VIDEOS ON DISK ── */
-    document.getElementById("btnSyncVideos").addEventListener("click", async () => {
-      const btn = document.getElementById("btnSyncVideos");
-      btn.disabled = true;
-      btn.textContent = "Scansione in corso...";
-      try {
-        const res = await fetch("/api/scan", { method: "POST" });
-        const data = await res.json();
-        showToast(`Sincronizzazione completata: +${data.added_count} nuovi video aggiunti!`);
-        loadData();
-      } catch (e) {
-        showToast("Errore scansione cartelle");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Sincronizza Cartelle";
-      }
-    });
-
     /* ── CATEGORY MODAL & ACTIONS ── */
-    document.getElementById("btnOpenNewCategory").addEventListener("click", () => {
+    document.getElementById("btnOpenNewCategory")?.addEventListener("click", () => {
       document.getElementById("categoryModalTitle").textContent = "NUOVA SOTTOCATEGORIA";
       document.getElementById("catEditOldId").value = "";
       document.getElementById("catNameInput").value = "";
@@ -1304,60 +1452,66 @@
       document.getElementById("categoryModal").classList.remove("open");
     }
 
-    document.getElementById("categoryForm").addEventListener("submit", async (e) => {
+    document.getElementById("categoryForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
       const oldId = document.getElementById("catEditOldId").value;
       const catType = document.getElementById("catTypeSelect").value;
-      const name = document.getElementById("catNameInput").value.trim();
+      const name = document.getElementById("catNameInput").value.trim().toUpperCase();
 
-      try {
-        if (oldId) {
-          // Rename
-          const res = await fetch(`/api/categories/${catType}/${oldId}`, {
+      if (!appData.categories[catType]) appData.categories[catType] = [];
+
+      if (oldId) {
+        // Rinomina
+        const found = appData.categories[catType].find(c => c.id === oldId);
+        if (found) {
+          found.name = name;
+          saveStore(appData);
+          fetch(`/api/categories/${catType}/${oldId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name })
-          });
-          if (res.ok) {
-            showToast("Sottocategoria rinominata!");
-            closeCategoryModal();
-            loadData();
-          }
-        } else {
-          // Create
-          const res = await fetch("/api/categories", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: catType, name })
-          });
-          if (res.ok) {
-            showToast("Sottocategoria creata!");
-            closeCategoryModal();
-            loadData();
-          } else {
-            const err = await res.json();
-            alert(err.error || "Errore creazione");
-          }
+          }).catch(() => {});
+          showToast("Sottocategoria rinominata!");
+          closeCategoryModal();
+          renderCategories();
+          populateFilterSelect();
+          updateSubcatOptions(currentMacro);
         }
-      } catch (e) {
-        showToast("Errore durante il salvataggio");
+      } else {
+        // Creazione nuova sottocategoria
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        if (appData.categories[catType].some(c => c.id === slug)) {
+          alert("Una sottocategoria con questo identificatore esiste già!");
+          return;
+        }
+        appData.categories[catType].push({ id: slug, name: name });
+        saveStore(appData);
+        fetch("/api/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: catType, name, id: slug })
+        }).catch(() => {});
+        showToast("Sottocategoria creata!");
+        closeCategoryModal();
+        renderCategories();
+        populateFilterSelect();
+        updateSubcatOptions(currentMacro);
       }
     });
 
-    async function deleteCategory(catType, subId) {
-      if (!confirm(`Sei sicuro di voler eliminare la sottocategoria '${subId}'?`)) return;
-      try {
-        const res = await fetch(`/api/categories/${catType}/${subId}`, { method: "DELETE" });
-        if (res.ok) {
-          showToast("Sottocategoria eliminata!");
-          loadData();
-        }
-      } catch (e) {
-        showToast("Errore eliminazione");
-      }
+    function deleteCategory(catType, subId) {
+      if (!confirm(`Sei sicuro di voler eliminare la sottocategoria '${subId.toUpperCase()}'?`)) return;
+      appData.categories[catType] = (appData.categories[catType] || []).filter(c => c.id !== subId);
+      saveStore(appData);
+
+      fetch(`/api/categories/${catType}/${subId}`, { method: "DELETE" }).catch(() => {});
+      showToast("Sottocategoria eliminata!");
+      renderCategories();
+      populateFilterSelect();
+      updateSubcatOptions(currentMacro);
     }
 
-    // Inizializza verificando la password
+    // Inizializza verificando l'autenticazione
     checkAuth();
   </script>
 </body>

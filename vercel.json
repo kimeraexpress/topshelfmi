@@ -2,18 +2,29 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/admin",
-      "dest": "/admin.html"
+      "source": "/admin",
+      "destination": "/admin.html"
     },
     {
-      "src": "/api/data",
-      "dest": "/data.json"
-    },
+      "source": "/api/data",
+      "destination": "/data.json"
+    }
+  ],
+  "headers": [
     {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/data.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        }
+      ]
     }
   ]
 }

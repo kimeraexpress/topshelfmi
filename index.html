@@ -983,24 +983,124 @@
       });
     });
 
-    /* Carica dati dinamici da server o data.json */
-    async function initGallery() {
-      try {
-        const res = await fetch("/api/data");
-        if (res.ok) {
-          appData = await res.json();
+    const STORE_KEY = "topshelf_store_v1";
+
+    const DEFAULT_DATA = {
+      categories: {
+        ash: [
+          { id: "static", name: "STATIC" },
+          { id: "fresh-frozen", name: "FRESH FROZEN" },
+          { id: "dry-sift", name: "DRY SIFT" },
+          { id: "mousse", name: "MOUSSE" },
+          { id: "work", name: "WORK" }
+        ],
+        weed: []
+      },
+      products: [
+        {
+          id: "prod_1",
+          category: "ash",
+          subcategory: "static",
+          strain: "BLACK MAGIC - FRIED BANANA",
+          tag: "STATIC",
+          video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4"
+        },
+        {
+          id: "prod_2",
+          category: "ash",
+          subcategory: "static",
+          strain: "BLACK MAGIC - YELLOW GMOZ",
+          tag: "STATIC",
+          video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4"
         }
-      } catch (e) {
+      ]
+    };
+
+    /* Carica dati dinamici da localStorage, server o data.json */
+    async function initGallery() {
+      let stored = null;
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.categories && Array.isArray(parsed.products)) {
+            const hasAsh = parsed.categories.ash && parsed.categories.ash.length > 0;
+            const hasProds = parsed.products.length > 0;
+            if (hasAsh || hasProds) {
+              stored = parsed;
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (stored) {
+        appData = stored;
+      } else {
         try {
-          const res2 = await fetch("data.json");
-          if (res2.ok) appData = await res2.json();
-        } catch (e2) {}
+          let res = await fetch("/data.json?t=" + Date.now());
+          if (!res.ok) res = await fetch("/api/data");
+          if (res.ok) {
+            const remoteData = await res.json();
+            if (remoteData && remoteData.categories) {
+              appData = remoteData;
+              try { localStorage.setItem(STORE_KEY, JSON.stringify(appData)); } catch(e) {}
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Garanzie di fallback se le strutture sono vuote
+      if (!appData.categories) appData.categories = { ash: [], weed: [] };
+      if (!appData.categories.ash || appData.categories.ash.length === 0) {
+        appData.categories.ash = JSON.parse(JSON.stringify(DEFAULT_DATA.categories.ash));
+      }
+      if (!Array.isArray(appData.products)) {
+        appData.products = [];
+      }
+      if (appData.products.length === 0 && !localStorage.getItem("topshelf_cleared_by_user")) {
+        appData.products = JSON.parse(JSON.stringify(DEFAULT_DATA.products));
       }
 
       renderSubcategoryPills();
       renderAsh(activeFilter);
       renderWeed();
     }
+
+    // Sincronizzazione in tempo reale con il pannello Admin
+    const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("topshelf_sync_bus") : null;
+    if (syncChannel) {
+      syncChannel.onmessage = (event) => {
+        if (event.data && event.data.data) {
+          appData = event.data.data;
+          renderSubcategoryPills();
+          renderAsh(activeFilter);
+          renderWeed();
+        }
+      };
+    }
+
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORE_KEY && e.newValue) {
+        try {
+          appData = JSON.parse(e.newValue);
+          renderSubcategoryPills();
+          renderAsh(activeFilter);
+          renderWeed();
+        } catch (err) {}
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (raw) {
+          appData = JSON.parse(raw);
+          renderSubcategoryPills();
+          renderAsh(activeFilter);
+          renderWeed();
+        }
+      } catch (e) {}
+    });
 
     initGallery();
   </script>
