@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#080c18" />
+  <title>TOPSHELFMI — Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #080c18;
+      --bg-card:     #0f1629;
+      --surface:     #131c33;
+      --surface-hov: #182340;
+      --border:      rgba(130, 160, 230, 0.15);
+      --gold:        #f5a623;
+      --gold-dark:   #d48912;
+      --gold-glow:   rgba(245, 166, 35, 0.25);
+      --danger:      #e63946;
+      --danger-glow: rgba(230, 57, 70, 0.25);
+      --success:     #2a9d8f;
+      --text:        #ffffff;
+      --text-dim:    #9aa5c4;
+      --font-main:   'Plus Jakarta Sans', sans-serif;
+      --font-disp:   'Outfit', sans-serif;
+      --radius:      14px;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-main);
+      min-height: 100dvh;
+      padding-bottom: 80px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: rgba(11, 16, 32, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid var(--gold);
+    }
+
+    .header-title-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-title {
+      font-family: var(--font-disp);
+      font-size: 1.05rem;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: var(--text);
+    }
+
+    .header-badge {
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .btn-view-site {
+      background: rgba(245, 166, 35, 0.12);
+      border: 1px solid rgba(245, 166, 35, 0.4);
+      color: var(--gold);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-family: var(--font-disp);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-view-site:hover {
+      background: var(--gold);
+      color: #0c101c;
+    }
+
+    /* ── TABS NAV ── */
+    .tabs-nav {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 14px 0 12px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-dim);
+      font-family: var(--font-disp);
+      font-size: 0.88rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ── ACTION BAR ── */
+    .action-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-family: var(--font-disp);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.18s ease;
+      border: none;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #0c101c;
+      box-shadow: 0 4px 14px var(--gold-glow);
+    }
+
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-secondary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover { background: var(--surface-hov); }
+
+    .btn-danger {
+      background: rgba(230, 57, 70, 0.15);
+      border: 1px solid rgba(230, 57, 70, 0.4);
+      color: #ff6b6b;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.72rem;
+      border-radius: 6px;
+    }
+
+    /* ── SEARCH & FILTER ROW ── */
+    .search-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .input-text, .select-box {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-family: var(--font-main);
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-text:focus, .select-box:focus {
+      border-color: var(--gold);
+    }
+
+    /* ── PRODUCT LIST CARDS ── */
+    .product-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .prod-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      transition: border-color 0.15s;
+    }
+
+    .prod-card:hover {
+      border-color: rgba(245, 166, 35, 0.4);
+    }
+
+    .prod-thumb-wrap {
+      width: 75px;
+      height: 95px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .prod-thumb-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .prod-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .prod-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge-cat {
+      font-family: var(--font-disp);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(245, 166, 35, 0.15);
+      color: var(--gold);
+      border: 1px solid rgba(245, 166, 35, 0.3);
+    }
+
+    .badge-sub {
+      font-family: var(--font-disp);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--text-dim);
+    }
+
+    .prod-title {
+      font-family: var(--font-disp);
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .prod-path {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0.7;
+    }
+
+    .prod-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* ── CATEGORIES LIST ── */
+    .cat-group {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .cat-group-title {
+      font-family: var(--font-disp);
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--gold);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cat-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      gap: 10px;
+    }
+
+    .cat-row-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .cat-row-name {
+      font-family: var(--font-disp);
+      font-size: 0.88rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+
+    .cat-row-count {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .cat-row-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* ── MODALS ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #0f162a;
+      border: 1px solid rgba(130, 160, 230, 0.25);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 22px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      position: relative;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-head h3 {
+      font-family: var(--font-disp);
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: var(--gold);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      display: block;
+      font-family: var(--font-disp);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .radio-btn-label {
+      flex: 1;
+      text-align: center;
+      padding: 9px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: var(--font-disp);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      color: var(--text-dim);
+      transition: all 0.15s;
+    }
+
+    .radio-btn-label.active {
+      background: var(--gold);
+      color: #0c101c;
+      border-color: var(--gold);
+    }
+
+    .file-dropzone {
+      border: 2px dashed rgba(245, 166, 35, 0.35);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      background: rgba(245, 166, 35, 0.03);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .file-dropzone:hover {
+      border-color: var(--gold);
+      background: rgba(245, 166, 35, 0.07);
+    }
+
+    .file-dropzone p {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+
+    .file-dropzone small {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+
+    /* Status toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #19233e;
+      border: 1px solid var(--gold);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-family: var(--font-disp);
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      z-index: 200;
+      transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── LOGIN GATE ── */
+    .login-gate {
+      position: fixed;
+      inset: 0;
+      background: #080c18;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .login-card {
+      background: #0f162a;
+      border: 1px solid rgba(130, 160, 230, 0.25);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 24px rgba(245, 166, 35, 0.15);
+      border-radius: 20px;
+      padding: 34px 24px;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .login-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--gold);
+      margin: 0 auto 12px;
+      box-shadow: 0 0 20px rgba(245, 166, 35, 0.35);
+    }
+
+    .login-brand {
+      font-family: var(--font-disp);
+      font-size: 1.35rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+
+    .login-tag {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── LOGIN GATE OVERLAY ── -->
+  <div class="login-gate" id="loginGate">
+    <div class="login-card">
+      <img src="LOGO NUOVO.jpg" alt="Logo" class="login-logo" />
+      <div class="login-brand">TOPSHELFMI</div>
+      <div class="login-tag">AREA RISERVATA ADMIN</div>
+      <form id="loginForm" onsubmit="handleAdminLogin(event)">
+        <div class="form-group" style="margin-top:20px; text-align:left;">
+          <label class="form-label">Password di Accesso</label>
+          <input type="password" id="adminPasswordInput" class="input-text" placeholder="Inserisci password..." required autofocus />
+        </div>
+        <div id="loginErrorMsg" style="color:var(--danger); font-size:0.75rem; font-weight:700; margin-bottom:12px; display:none;">
+          Password non valida. Riprova.
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">ACCEDI AL PANNELLO</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="header-left">
+      <img src="LOGO NUOVO.jpg" alt="Logo" class="header-logo" />
+      <div class="header-title-box">
+        <span class="header-title">TOPSHELFMI</span>
+        <span class="header-badge">Admin Panel</span>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <a href="/" target="_blank" class="btn-view-site">
+        <span>Vedi Sito</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+        </svg>
+      </a>
+      <button class="btn btn-secondary btn-small" onclick="handleAdminLogout()" title="Disconnetti" style="padding:7px 10px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── TABS ── -->
+  <div class="tabs-nav">
+    <button class="tab-btn active" data-tab="tab-products">PRODOTTI</button>
+    <button class="tab-btn" data-tab="tab-categories">SOTTOCATEGORIE</button>
+  </div>
+
+  <main class="container">
+
+    <!-- ════════════ TAB 1: PRODOTTI ════════════ -->
+    <section id="tab-products" class="tab-panel active">
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btnOpenNewProduct">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Nuovo Prodotto
+        </button>
+        <button class="btn btn-secondary" id="btnSyncVideos">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 2v6h-6M3 12a9 9 0 0115.36-6.36L21 8M3 22v-6h6M21 12a9 9 0 01-15.36 6.36L3 16"/>
+          </svg>
+          Sincronizza Cartelle
+        </button>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="search-row">
+        <input type="text" id="searchStrain" class="input-text" placeholder="Cerca strain..." />
+        <select id="filterSubcatSelect" class="select-box" style="max-width: 170px;">
+          <option value="all">Tutte le categorie</option>
+        </select>
+      </div>
+
+      <div class="product-list" id="productsContainer">
+        <!-- Generato via JavaScript -->
+      </div>
+    </section>
+
+    <!-- ════════════ TAB 2: SOTTOCATEGORIE ════════════ -->
+    <section id="tab-categories" class="tab-panel">
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btnOpenNewCategory">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Nuova Sottocategoria
+        </button>
+      </div>
+
+      <!-- Gruppo ASH -->
+      <div class="cat-group">
+        <div class="cat-group-title">
+          <span>Sottocategorie ASH</span>
+          <span style="font-size:0.7rem; color:var(--text-dim);" id="ashCatCount">0 categorie</span>
+        </div>
+        <div class="cat-items-list" id="ashSubcategoriesList"></div>
+      </div>
+
+      <!-- Gruppo WEED -->
+      <div class="cat-group">
+        <div class="cat-group-title">
+          <span>Sottocategorie WEED</span>
+          <span style="font-size:0.7rem; color:var(--text-dim);" id="weedCatCount">0 categorie</span>
+        </div>
+        <div class="cat-items-list" id="weedSubcategoriesList"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ════════════ MODAL AGGIUNGI / MODIFICA PRODOTTO ════════════ -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="productModalTitle">NUOVO PRODOTTO</h3>
+        <button class="modal-close" onclick="closeProductModal()">✕</button>
+      </div>
+
+      <form id="productForm">
+        <input type="hidden" id="editProdId" value="" />
+
+        <!-- Categoria -->
+        <div class="form-group">
+          <label class="form-label">Macro Categoria</label>
+          <div class="radio-group">
+            <div class="radio-btn-label active" id="radioAsh" onclick="selectMacroCat('ash')">ASH</div>
+            <div class="radio-btn-label" id="radioWeed" onclick="selectMacroCat('weed')">WEED</div>
+          </div>
+        </div>
+
+        <!-- Sottocategoria -->
+        <div class="form-group" id="subcatFormGroup">
+          <label class="form-label">Sottocategoria</label>
+          <select id="prodSubcat" class="select-box" required></select>
+        </div>
+
+        <!-- Nome Strain -->
+        <div class="form-group">
+          <label class="form-label">Nome Strain *</label>
+          <input type="text" id="prodStrain" class="input-text" placeholder="es. YELLOW MELON S1" required />
+        </div>
+
+        <!-- Tag / Farm -->
+        <div class="form-group">
+          <label class="form-label">Tag / Farm (Opzionale)</label>
+          <input type="text" id="prodTag" class="input-text" placeholder="es. STATIC o FRUTATECH FARM" />
+        </div>
+
+        <!-- Video Source Selection -->
+        <div class="form-group">
+          <label class="form-label">File Video (.MP4 / .MOV / .WEBM)</label>
+          
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button type="button" class="btn btn-secondary btn-small" id="btnSourceUpload" onclick="setVideoSourceMode('upload')">Carica da Telefono / PC</button>
+            <button type="button" class="btn btn-secondary btn-small" id="btnSourceExisting" onclick="setVideoSourceMode('existing')">Scegli già presente</button>
+          </div>
+
+          <!-- Upload mode -->
+          <div id="videoUploadBox">
+            <label class="file-dropzone" for="videoFileInput">
+              <p>Tocca per selezionare video</p>
+              <small id="videoFileNameDisplay">Supporta MP4, WebM, MOV</small>
+            </label>
+            <input type="file" id="videoFileInput" accept="video/*" style="display:none;" onchange="handleFileSelect(this)" />
+          </div>
+
+          <!-- Existing file mode -->
+          <div id="videoExistingBox" style="display:none;">
+            <select id="existingVideoSelect" class="select-box">
+              <option value="">Seleziona un video trovato sul server...</option>
+            </select>
+          </div>
+
+          <input type="hidden" id="prodVideoPath" />
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Annulla</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveProduct">Salva Prodotto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════ MODAL SOTTOCATEGORIA ════════════ -->
+  <div class="modal-overlay" id="categoryModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="categoryModalTitle">NUOVA SOTTOCATEGORIA</h3>
+        <button class="modal-close" onclick="closeCategoryModal()">✕</button>
+      </div>
+
+      <form id="categoryForm">
+        <input type="hidden" id="catEditType" value="ash" />
+        <input type="hidden" id="catEditOldId" value="" />
+
+        <div class="form-group">
+          <label class="form-label">Macro Categoria</label>
+          <select id="catTypeSelect" class="select-box">
+            <option value="ash">ASH</option>
+            <option value="weed">WEED</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nome Sottocategoria *</label>
+          <input type="text" id="catNameInput" class="input-text" placeholder="es. ROSIN, PIATTO, FROZEN..." required />
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Annulla</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveCategory">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── TOAST NOTIFICATION ── -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ════════════ JAVASCRIPT LOGIC ════════════ -->
+  <script>
+    let appData = { categories: { ash: [], weed: [] }, products: [] };
+    let currentMacro = "ash";
+    let videoSourceMode = "upload";
+
+    // Password di accesso Admin (predefinita: topshelf03 oppure milano03)
+    const VALID_PASSWORDS = ["topshelf03", "milano03", "tpmilano03"];
+
+    function checkAuth() {
+      const isAuth = sessionStorage.getItem("topshelf_admin_auth") === "true";
+      const gate = document.getElementById("loginGate");
+      if (isAuth) {
+        gate.style.display = "none";
+        loadData();
+      } else {
+        gate.style.display = "flex";
+        setTimeout(() => document.getElementById("adminPasswordInput")?.focus(), 100);
+      }
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const input = document.getElementById("adminPasswordInput");
+      const err = document.getElementById("loginErrorMsg");
+      const val = input.value.trim();
+
+      if (VALID_PASSWORDS.includes(val)) {
+        sessionStorage.setItem("topshelf_admin_auth", "true");
+        sessionStorage.setItem("topshelf_admin_pass", val);
+        document.getElementById("loginGate").style.display = "none";
+        err.style.display = "none";
+        showToast("Benvenuto nel Pannello Admin!");
+        loadData();
+      } else {
+        err.style.display = "block";
+        input.value = "";
+        input.focus();
+      }
+    }
+
+    function handleAdminLogout() {
+      if (confirm("Vuoi bloccare il pannello e uscire?")) {
+        sessionStorage.removeItem("topshelf_admin_auth");
+        sessionStorage.removeItem("topshelf_admin_pass");
+        document.getElementById("loginGate").style.display = "flex";
+        document.getElementById("adminPasswordInput").value = "";
+        showToast("Sessione chiusa.");
+      }
+    }
+
+    function getAdminAuthHeaders() {
+      const pass = sessionStorage.getItem("topshelf_admin_pass") || "topshelf03";
+      return { "X-Admin-Password": pass };
+    }
+
+    /* ── FETCH DATA ── */
+    async function loadData() {
+      try {
+        const res = await fetch("/api/data");
+        if (res.ok) {
+          appData = await res.json();
+          renderProducts();
+          renderCategories();
+          populateFilterSelect();
+        }
+      } catch (err) {
+        showToast("Errore connessione server!");
+      }
+    }
+
+    /* ── TABS ── */
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    /* ── RENDER PRODUCTS ── */
+    function renderProducts() {
+      const container = document.getElementById("productsContainer");
+      const search = document.getElementById("searchStrain").value.toLowerCase().trim();
+      const filterSub = document.getElementById("filterSubcatSelect").value;
+
+      container.innerHTML = "";
+
+      const filtered = appData.products.filter(p => {
+        const matchSearch = p.strain.toLowerCase().includes(search);
+        const matchSub = filterSub === "all" || p.subcategory === filterSub;
+        return matchSearch && matchSub;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:50px 16px; color:var(--text-dim);">
+            <p style="font-family:var(--font-disp); font-size:0.9rem; font-weight:800; letter-spacing:1px;">NESSUN PRODOTTO TROVATO</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "prod-card";
+        card.innerHTML = `
+          <div class="prod-thumb-wrap">
+            <video src="/${p.video}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>
+          </div>
+          <div class="prod-details">
+            <div class="prod-badges">
+              <span class="badge-cat">${p.category.toUpperCase()}</span>
+              ${p.subcategory ? `<span class="badge-sub">${p.subcategory.toUpperCase()}</span>` : ""}
+            </div>
+            <div class="prod-title">${p.strain}</div>
+            <div class="prod-path">${p.video}</div>
+          </div>
+          <div class="prod-actions">
+            <button class="btn btn-secondary btn-small" onclick="openEditProduct('${p.id}')">Modifica</button>
+            <button class="btn btn-danger btn-small" onclick="deleteProduct('${p.id}')">Elimina</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    document.getElementById("searchStrain").addEventListener("input", renderProducts);
+    document.getElementById("filterSubcatSelect").addEventListener("change", renderProducts);
+
+    function populateFilterSelect() {
+      const sel = document.getElementById("filterSubcatSelect");
+      sel.innerHTML = `<option value="all">Tutte le categorie</option>`;
+      (appData.categories.ash || []).forEach(c => {
+        sel.innerHTML += `<option value="${c.id}">ASH - ${c.name}</option>`;
+      });
+      (appData.categories.weed || []).forEach(c => {
+        sel.innerHTML += `<option value="${c.id}">WEED - ${c.name}</option>`;
+      });
+    }
+
+    /* ── RENDER CATEGORIES ── */
+    function renderCategories() {
+      const ashList = document.getElementById("ashSubcategoriesList");
+      const weedList = document.getElementById("weedSubcategoriesList");
+      ashList.innerHTML = "";
+      weedList.innerHTML = "";
+
+      const ashCats = appData.categories.ash || [];
+      const weedCats = appData.categories.weed || [];
+
+      document.getElementById("ashCatCount").textContent = `${ashCats.length} categorie`;
+      document.getElementById("weedCatCount").textContent = `${weedCats.length} categorie`;
+
+      ashCats.forEach(c => {
+        const count = appData.products.filter(p => p.category === "ash" && p.subcategory === c.id).length;
+        const row = document.createElement("div");
+        row.className = "cat-row";
+        row.innerHTML = `
+          <div class="cat-row-info">
+            <span class="cat-row-name">${c.name}</span>
+            <span class="cat-row-count">${count} video</span>
+          </div>
+          <div class="cat-row-actions">
+            <button class="btn btn-secondary btn-small" onclick="openEditCategory('ash', '${c.id}', '${c.name}')">Rinomina</button>
+            <button class="btn btn-danger btn-small" onclick="deleteCategory('ash', '${c.id}')">Elimina</button>
+          </div>
+        `;
+        ashList.appendChild(row);
+      });
+
+      weedCats.forEach(c => {
+        const count = appData.products.filter(p => p.category === "weed" && p.subcategory === c.id).length;
+        const row = document.createElement("div");
+        row.className = "cat-row";
+        row.innerHTML = `
+          <div class="cat-row-info">
+            <span class="cat-row-name">${c.name}</span>
+            <span class="cat-row-count">${count} video</span>
+          </div>
+          <div class="cat-row-actions">
+            <button class="btn btn-secondary btn-small" onclick="openEditCategory('weed', '${c.id}', '${c.name}')">Rinomina</button>
+            <button class="btn btn-danger btn-small" onclick="deleteCategory('weed', '${c.id}')">Elimina</button>
+          </div>
+        `;
+        weedList.appendChild(row);
+      });
+    }
+
+    /* ── PRODUCT MODAL & ACTIONS ── */
+    function selectMacroCat(cat) {
+      currentMacro = cat;
+      document.getElementById("radioAsh").classList.toggle("active", cat === "ash");
+      document.getElementById("radioWeed").classList.toggle("active", cat === "weed");
+      updateSubcatOptions(cat);
+    }
+
+    function updateSubcatOptions(cat, selectedVal = "") {
+      const select = document.getElementById("prodSubcat");
+      select.innerHTML = "";
+      const cats = appData.categories[cat] || [];
+      if (cats.length === 0) {
+        select.innerHTML = `<option value="">Nessuna sottocategoria (Generica)</option>`;
+      } else {
+        cats.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.name;
+          if (c.id === selectedVal) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+    }
+
+    function setVideoSourceMode(mode) {
+      videoSourceMode = mode;
+      document.getElementById("videoUploadBox").style.display = mode === "upload" ? "block" : "none";
+      document.getElementById("videoExistingBox").style.display = mode === "existing" ? "block" : "none";
+      document.getElementById("btnSourceUpload").classList.toggle("btn-primary", mode === "upload");
+      document.getElementById("btnSourceExisting").classList.toggle("btn-primary", mode === "existing");
+      if (mode === "existing") loadExistingVideos();
+    }
+
+    async function loadExistingVideos() {
+      try {
+        const res = await fetch("/api/available-videos");
+        const list = await res.json();
+        const sel = document.getElementById("existingVideoSelect");
+        sel.innerHTML = `<option value="">Seleziona un video...</option>`;
+        list.forEach(v => {
+          sel.innerHTML += `<option value="${v}">${v}</option>`;
+        });
+      } catch (e) {}
+    }
+
+    function handleFileSelect(input) {
+      if (input.files && input.files[0]) {
+        document.getElementById("videoFileNameDisplay").textContent = `Selezionato: ${input.files[0].name}`;
+      }
+    }
+
+    document.getElementById("btnOpenNewProduct").addEventListener("click", () => {
+      document.getElementById("productModalTitle").textContent = "NUOVO PRODOTTO";
+      document.getElementById("editProdId").value = "";
+      document.getElementById("prodStrain").value = "";
+      document.getElementById("prodTag").value = "";
+      document.getElementById("prodVideoPath").value = "";
+      document.getElementById("videoFileInput").value = "";
+      document.getElementById("videoFileNameDisplay").textContent = "Supporta MP4, WebM, MOV";
+      selectMacroCat("ash");
+      setVideoSourceMode("upload");
+      document.getElementById("productModal").classList.add("open");
+    });
+
+    function openEditProduct(id) {
+      const p = appData.products.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById("productModalTitle").textContent = "MODIFICA PRODOTTO";
+      document.getElementById("editProdId").value = p.id;
+      document.getElementById("prodStrain").value = p.strain;
+      document.getElementById("prodTag").value = p.tag || "";
+      document.getElementById("prodVideoPath").value = p.video || "";
+      selectMacroCat(p.category);
+      updateSubcatOptions(p.category, p.subcategory);
+      setVideoSourceMode("existing");
+      loadExistingVideos().then(() => {
+        document.getElementById("existingVideoSelect").value = p.video;
+      });
+      document.getElementById("productModal").classList.add("open");
+    }
+
+    function closeProductModal() {
+      document.getElementById("productModal").classList.remove("open");
+    }
+
+    document.getElementById("productForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById("btnSaveProduct");
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Salvataggio...";
+
+      const editId = document.getElementById("editProdId").value;
+      const strain = document.getElementById("prodStrain").value.trim();
+      const tag = document.getElementById("prodTag").value.trim();
+      const subcat = document.getElementById("prodSubcat").value;
+      const fileInput = document.getElementById("videoFileInput");
+
+      try {
+        if (editId) {
+          // UPDATE
+          let videoPath = document.getElementById("prodVideoPath").value;
+          if (videoSourceMode === "existing") {
+            videoPath = document.getElementById("existingVideoSelect").value;
+          } else if (fileInput.files.length > 0) {
+            // Upload new file
+            const fd = new FormData();
+            fd.append("video", fileInput.files[0]);
+            fd.append("category", currentMacro);
+            fd.append("subcategory", subcat);
+            const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+            const upData = await upRes.json();
+            if (upData.path) videoPath = upData.path;
+          }
+
+          const res = await fetch(`/api/products/${editId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ strain, tag, category: currentMacro, subcategory: subcat, video: videoPath })
+          });
+          if (res.ok) {
+            showToast("Prodotto aggiornato!");
+            closeProductModal();
+            loadData();
+          }
+        } else {
+          // CREATE
+          if (videoSourceMode === "upload" && fileInput.files.length > 0) {
+            const fd = new FormData();
+            fd.append("video_file", fileInput.files[0]);
+            fd.append("category", currentMacro);
+            fd.append("subcategory", subcat);
+            fd.append("strain", strain);
+            fd.append("tag", tag);
+            const res = await fetch("/api/products", { method: "POST", body: fd });
+            if (res.ok) {
+              showToast("Prodotto creato con successo!");
+              closeProductModal();
+              loadData();
+            }
+          } else {
+            const videoPath = document.getElementById("existingVideoSelect").value;
+            const res = await fetch("/api/products", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ strain, tag, category: currentMacro, subcategory: subcat, video: videoPath })
+            });
+            if (res.ok) {
+              showToast("Prodotto creato!");
+              closeProductModal();
+              loadData();
+            }
+          }
+        }
+      } catch (err) {
+        showToast("Errore durante il salvataggio");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Salva Prodotto";
+      }
+    });
+
+    async function deleteProduct(id) {
+      if (!confirm("Sei sicuro di voler eliminare questo prodotto?")) return;
+      const deleteFile = confirm("Vuoi eliminare anche il file video dal computer?");
+      try {
+        const res = await fetch(`/api/products/${id}?delete_file=${deleteFile ? 1 : 0}`, { method: "DELETE" });
+        if (res.ok) {
+          showToast("Prodotto eliminato");
+          loadData();
+        }
+      } catch (e) {
+        showToast("Errore durante l'eliminazione");
+      }
+    }
+
+    /* ── AUTO SYNC VIDEOS ON DISK ── */
+    document.getElementById("btnSyncVideos").addEventListener("click", async () => {
+      const btn = document.getElementById("btnSyncVideos");
+      btn.disabled = true;
+      btn.textContent = "Scansione in corso...";
+      try {
+        const res = await fetch("/api/scan", { method: "POST" });
+        const data = await res.json();
+        showToast(`Sincronizzazione completata: +${data.added_count} nuovi video aggiunti!`);
+        loadData();
+      } catch (e) {
+        showToast("Errore scansione cartelle");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Sincronizza Cartelle";
+      }
+    });
+
+    /* ── CATEGORY MODAL & ACTIONS ── */
+    document.getElementById("btnOpenNewCategory").addEventListener("click", () => {
+      document.getElementById("categoryModalTitle").textContent = "NUOVA SOTTOCATEGORIA";
+      document.getElementById("catEditOldId").value = "";
+      document.getElementById("catNameInput").value = "";
+      document.getElementById("catTypeSelect").disabled = false;
+      document.getElementById("categoryModal").classList.add("open");
+    });
+
+    function openEditCategory(catType, subId, currentName) {
+      document.getElementById("categoryModalTitle").textContent = "RINOMINA SOTTOCATEGORIA";
+      document.getElementById("catEditType").value = catType;
+      document.getElementById("catEditOldId").value = subId;
+      document.getElementById("catNameInput").value = currentName;
+      document.getElementById("catTypeSelect").value = catType;
+      document.getElementById("catTypeSelect").disabled = true;
+      document.getElementById("categoryModal").classList.add("open");
+    }
+
+    function closeCategoryModal() {
+      document.getElementById("categoryModal").classList.remove("open");
+    }
+
+    document.getElementById("categoryForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const oldId = document.getElementById("catEditOldId").value;
+      const catType = document.getElementById("catTypeSelect").value;
+      const name = document.getElementById("catNameInput").value.trim();
+
+      try {
+        if (oldId) {
+          // Rename
+          const res = await fetch(`/api/categories/${catType}/${oldId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name })
+          });
+          if (res.ok) {
+            showToast("Sottocategoria rinominata!");
+            closeCategoryModal();
+            loadData();
+          }
+        } else {
+          // Create
+          const res = await fetch("/api/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: catType, name })
+          });
+          if (res.ok) {
+            showToast("Sottocategoria creata!");
+            closeCategoryModal();
+            loadData();
+          } else {
+            const err = await res.json();
+            alert(err.error || "Errore creazione");
+          }
+        }
+      } catch (e) {
+        showToast("Errore durante il salvataggio");
+      }
+    });
+
+    async function deleteCategory(catType, subId) {
+      if (!confirm(`Sei sicuro di voler eliminare la sottocategoria '${subId}'?`)) return;
+      try {
+        const res = await fetch(`/api/categories/${catType}/${subId}`, { method: "DELETE" });
+        if (res.ok) {
+          showToast("Sottocategoria eliminata!");
+          loadData();
+        }
+      } catch (e) {
+        showToast("Errore eliminazione");
+      }
+    }
+
+    // Inizializza verificando la password
+    checkAuth();
+  </script>
+</body>
+</html>

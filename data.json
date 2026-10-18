@@ -1,0 +1,30 @@
+{
+  "categories": {
+    "ash": [
+      { "id": "static", "name": "STATIC" },
+      { "id": "fresh-frozen", "name": "FROZEN" },
+      { "id": "dry-sift", "name": "DRY SIFT" },
+      { "id": "mousse", "name": "MOUSSE" },
+      { "id": "work", "name": "WORKLINE" }
+    ],
+    "weed": []
+  },
+  "products": [
+    {
+      "id": "prod_1",
+      "category": "ash",
+      "subcategory": "static",
+      "strain": "BLACK MAGIC - FRIED BANANA",
+      "tag": "STATIC",
+      "video": "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4"
+    },
+    {
+      "id": "prod_2",
+      "category": "ash",
+      "subcategory": "static",
+      "strain": "BLACK MAGIC - YELLOW GMOZ",
+      "tag": "STATIC",
+      "video": "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4"
+    }
+  ]
+}
