@@ -2,10 +2,10 @@
   "categories": {
     "ash": [
       { "id": "static", "name": "STATIC" },
-      { "id": "fresh-frozen", "name": "FROZEN" },
+      { "id": "fresh-frozen", "name": "FRESH FROZEN" },
       { "id": "dry-sift", "name": "DRY SIFT" },
       { "id": "mousse", "name": "MOUSSE" },
-      { "id": "work", "name": "WORKLINE" }
+      { "id": "work", "name": "WORK" }
     ],
     "weed": []
   },

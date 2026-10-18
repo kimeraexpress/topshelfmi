@@ -753,7 +753,13 @@
         <!-- Sottocategoria -->
         <div class="form-group" id="subcatFormGroup">
           <label class="form-label">Sottocategoria</label>
-          <select id="prodSubcat" class="select-box" required></select>
+          <select id="prodSubcat" class="select-box" required>
+            <option value="static">STATIC</option>
+            <option value="fresh-frozen">FRESH FROZEN</option>
+            <option value="dry-sift">DRY SIFT</option>
+            <option value="mousse">MOUSSE</option>
+            <option value="work">WORK</option>
+          </select>
         </div>
 
         <!-- Nome Strain -->
@@ -842,7 +848,38 @@
 
   <!-- ════════════ JAVASCRIPT LOGIC ════════════ -->
   <script>
-    let appData = { categories: { ash: [], weed: [] }, products: [] };
+    const DEFAULT_ASH_SUBCATS = [
+      { id: "static", name: "STATIC" },
+      { id: "fresh-frozen", name: "FRESH FROZEN" },
+      { id: "dry-sift", name: "DRY SIFT" },
+      { id: "mousse", name: "MOUSSE" },
+      { id: "work", name: "WORK" }
+    ];
+
+    let appData = {
+      categories: {
+        ash: [...DEFAULT_ASH_SUBCATS],
+        weed: []
+      },
+      products: [
+        {
+          id: "prod_1",
+          category: "ash",
+          subcategory: "static",
+          strain: "BLACK MAGIC - FRIED BANANA",
+          tag: "STATIC",
+          video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4"
+        },
+        {
+          id: "prod_2",
+          category: "ash",
+          subcategory: "static",
+          strain: "BLACK MAGIC - YELLOW GMOZ",
+          tag: "STATIC",
+          video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4"
+        }
+      ]
+    };
     let currentMacro = "ash";
     let videoSourceMode = "upload";
 
@@ -899,16 +936,32 @@
     /* ── FETCH DATA ── */
     async function loadData() {
       try {
-        const res = await fetch("/api/data");
+        let res = await fetch("/api/data");
+        if (!res.ok) res = await fetch("/data.json");
+        if (!res.ok) res = await fetch("data.json");
         if (res.ok) {
-          appData = await res.json();
-          renderProducts();
-          renderCategories();
-          populateFilterSelect();
+          const remoteData = await res.json();
+          if (remoteData.categories && remoteData.categories.ash && remoteData.categories.ash.length > 0) {
+            appData.categories = remoteData.categories;
+          }
+          if (remoteData.products) {
+            appData.products = remoteData.products;
+          }
         }
       } catch (err) {
-        showToast("Errore connessione server!");
+        try {
+          const res2 = await fetch("data.json");
+          if (res2.ok) {
+            const remoteData2 = await res2.json();
+            if (remoteData2.categories) appData.categories = remoteData2.categories;
+            if (remoteData2.products) appData.products = remoteData2.products;
+          }
+        } catch (e2) {}
       }
+      renderProducts();
+      renderCategories();
+      populateFilterSelect();
+      updateSubcatOptions(currentMacro);
     }
 
     /* ── TABS ── */
@@ -1040,8 +1093,12 @@
 
     function updateSubcatOptions(cat, selectedVal = "") {
       const select = document.getElementById("prodSubcat");
+      if (!select) return;
       select.innerHTML = "";
-      const cats = appData.categories[cat] || [];
+      const cats = (appData.categories && appData.categories[cat] && appData.categories[cat].length > 0)
+        ? appData.categories[cat]
+        : (cat === "ash" ? DEFAULT_ASH_SUBCATS : []);
+
       if (cats.length === 0) {
         select.innerHTML = `<option value="">Nessuna sottocategoria (Generica)</option>`;
       } else {
@@ -1049,7 +1106,7 @@
           const opt = document.createElement("option");
           opt.value = c.id;
           opt.textContent = c.name;
-          if (c.id === selectedVal) opt.selected = true;
+          if (c.id === selectedVal || (!selectedVal && c.id === "static")) opt.selected = true;
           select.appendChild(opt);
         });
       }
