@@ -1055,37 +1055,31 @@
       ]
     };
 
-    /* Carica dati dinamici da localStorage, server o data.json */
+    /* Carica dati dinamici da Vercel / server (con fallback locale) */
     async function initGallery() {
-      let stored = null;
       try {
-        const raw = localStorage.getItem(STORE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && parsed.categories && Array.isArray(parsed.products)) {
-            const hasAsh = parsed.categories.ash && parsed.categories.ash.length > 0;
-            const hasProds = parsed.products.length > 0;
-            if (hasAsh || hasProds) {
-              stored = parsed;
-            }
+        const res = await fetch("/api/data?t=" + Date.now(), {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+        });
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (remoteData && remoteData.categories) {
+            appData = remoteData;
+            try { localStorage.setItem(STORE_KEY, JSON.stringify(appData)); } catch(e) {}
           }
+        } else {
+          throw new Error("HTTP " + res.status);
         }
-      } catch (e) {}
-
-      if (stored) {
-        appData = stored;
-      } else {
+      } catch (e) {
+        // Fallback offline a localStorage se la rete non è disponibile
         try {
-          let res = await fetch("/data.json?t=" + Date.now());
-          if (!res.ok) res = await fetch("/api/data");
-          if (res.ok) {
-            const remoteData = await res.json();
-            if (remoteData && remoteData.categories) {
-              appData = remoteData;
-              try { localStorage.setItem(STORE_KEY, JSON.stringify(appData)); } catch(e) {}
-            }
+          const raw = localStorage.getItem(STORE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.categories) appData = parsed;
           }
-        } catch (e) {}
+        } catch (err) {}
       }
 
       // Garanzie di fallback se le strutture sono vuote
@@ -1129,16 +1123,9 @@
       }
     });
 
+    // Quando l'utente torna sulla pagina, ricarica automaticamente i prodotti
     window.addEventListener("focus", () => {
-      try {
-        const raw = localStorage.getItem(STORE_KEY);
-        if (raw) {
-          appData = JSON.parse(raw);
-          renderSubcategoryPills();
-          renderAsh(activeFilter);
-          renderWeed();
-        }
-      } catch (e) {}
+      initGallery();
     });
 
     initGallery();

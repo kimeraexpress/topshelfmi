@@ -1010,39 +1010,62 @@
       setTimeout(() => t.classList.remove("show"), 2800);
     }
 
+    /* ── COMUNICAZIONE CON VERCEL BLOB STORAGE & CATALOGO ── */
+    async function uploadVideoToVercel(file, onProgress) {
+      const { upload } = await import("https://esm.sh/@vercel/blob/client");
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        onUploadProgress: (p) => {
+          if (onProgress) onProgress(p.percentage);
+        }
+      });
+      return blob.url;
+    }
+
+    async function saveCatalogToVercel(data) {
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Errore durante il salvataggio sul catalogo online di Vercel");
+      }
+      return await res.json();
+    }
+
     /* ── FETCH & SYNC DATA ── */
     async function loadData(forceNetwork = false) {
-      let stored = null;
-      if (!forceNetwork) {
+      let loadedFromRemote = false;
+      try {
+        const res = await fetch("/api/data?t=" + Date.now(), {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+        });
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (remoteData && remoteData.categories) {
+            appData = remoteData;
+            saveStore(appData);
+            loadedFromRemote = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Impossibile contattare /api/data, uso cache locale:", err);
+      }
+
+      if (!loadedFromRemote) {
         try {
           const raw = localStorage.getItem(STORE_KEY);
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && parsed.categories && Array.isArray(parsed.products)) {
-              const hasAsh = parsed.categories.ash && parsed.categories.ash.length > 0;
-              const hasProds = parsed.products.length > 0;
-              if (hasAsh || hasProds) {
-                stored = parsed;
-              }
+              appData = parsed;
             }
           }
         } catch (e) {}
-      }
-
-      if (stored) {
-        appData = stored;
-      } else {
-        try {
-          let res = await fetch("/data.json?t=" + Date.now());
-          if (!res.ok) res = await fetch("/api/data");
-          if (res.ok) {
-            const remoteData = await res.json();
-            if (remoteData && remoteData.categories) {
-              appData = remoteData;
-              saveStore(appData);
-            }
-          }
-        } catch (err) {}
       }
 
       // Garanzie di fallback se le strutture sono vuote
@@ -1063,7 +1086,7 @@
       renderCategories();
       populateFilterSelect();
       updateSubcatOptions(currentMacro);
-      if (forceNetwork) showToast("Dati ricaricati con successo!");
+      if (forceNetwork) showToast("Dati ricaricati dal server!");
     }
 
     function resetToDefaults() {
@@ -1342,7 +1365,7 @@
       e.preventDefault();
       const saveBtn = document.getElementById("btnSaveProduct");
       saveBtn.disabled = true;
-      saveBtn.textContent = "Salvataggio...";
+      saveBtn.textContent = "Preparazione...";
 
       const editId = document.getElementById("editProdId").value;
       const strain = document.getElementById("prodStrain").value.trim();
@@ -1351,11 +1374,31 @@
       const fileInput = document.getElementById("videoFileInput");
       let videoPath = document.getElementById("prodVideoPath").value.trim();
 
-      if (!videoPath && fileInput.files && fileInput.files[0]) {
-        videoPath = `videos/${currentMacro}/${subcat}/${fileInput.files[0].name}`;
-      }
-
       try {
+        // Se è stato selezionato un file video dal telefono o PC
+        if (fileInput.files && fileInput.files.length > 0) {
+          const file = fileInput.files[0];
+          saveBtn.textContent = "Caricamento video su Vercel (0%)...";
+          try {
+            videoPath = await uploadVideoToVercel(file, (pct) => {
+              saveBtn.textContent = `Caricamento video su Vercel: ${Math.round(pct)}%...`;
+            });
+          } catch (uploadErr) {
+            console.error("Errore upload Blob:", uploadErr);
+            alert("Errore durante il caricamento del video su Vercel Storage:\n\n" + (uploadErr.message || uploadErr));
+            throw uploadErr;
+          }
+        }
+
+        if (!videoPath) {
+          alert("Seleziona un video da caricare oppure scegli un video esistente o inserisci un URL.");
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Salva Prodotto";
+          return;
+        }
+
+        saveBtn.textContent = "Pubblicazione nel catalogo online...";
+
         if (editId) {
           // UPDATE
           const idx = appData.products.findIndex(x => x.id === editId);
@@ -1368,19 +1411,6 @@
               tag: tag || subcat.toUpperCase(),
               video: videoPath
             };
-            saveStore(appData);
-
-            // Server background call se attivo
-            fetch(`/api/products/${editId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ strain, tag, category: currentMacro, subcategory: subcat, video: videoPath })
-            }).catch(() => {});
-
-            showToast("Prodotto aggiornato!");
-            closeProductModal();
-            renderProducts();
-            renderCategories();
           }
         } else {
           // CREATE
@@ -1394,31 +1424,18 @@
             video: videoPath
           };
           appData.products.unshift(newProd);
-          saveStore(appData);
-
-          // Server background upload se presente file e server attivo
-          if (fileInput.files && fileInput.files.length > 0) {
-            const fd = new FormData();
-            fd.append("video_file", fileInput.files[0]);
-            fd.append("category", currentMacro);
-            fd.append("subcategory", subcat);
-            fd.append("strain", strain);
-            fd.append("tag", tag);
-            fetch("/api/products", { method: "POST", body: fd }).catch(() => {});
-          } else {
-            fetch("/api/products", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(newProd)
-            }).catch(() => {});
-          }
-
-          showToast("Prodotto creato con successo!");
-          closeProductModal();
-          renderProducts();
-          renderCategories();
         }
+
+        // Salva direttamente su Vercel Blob (visibile a tutti i visitatori del sito)
+        await saveCatalogToVercel(appData);
+        saveStore(appData);
+
+        showToast(editId ? "Prodotto aggiornato online!" : "Prodotto pubblicato con successo online!");
+        closeProductModal();
+        renderProducts();
+        renderCategories();
       } catch (err) {
+        console.error("Errore salvataggio:", err);
         showToast("Errore durante il salvataggio");
       } finally {
         saveBtn.disabled = false;
@@ -1426,16 +1443,20 @@
       }
     });
 
-    function deleteProduct(id) {
+    async function deleteProduct(id) {
       if (!confirm("Sei sicuro di voler eliminare questo prodotto?")) return;
       appData.products = (appData.products || []).filter(p => p.id !== id);
       if (appData.products.length === 0) {
         localStorage.setItem("topshelf_cleared_by_user", "true");
       }
-      saveStore(appData);
-
-      fetch(`/api/products/${id}`, { method: "DELETE" }).catch(() => {});
-      showToast("Prodotto eliminato");
+      try {
+        await saveCatalogToVercel(appData);
+        saveStore(appData);
+        showToast("Prodotto eliminato online!");
+      } catch (err) {
+        console.error(err);
+        showToast("Errore eliminazione su Vercel");
+      }
       renderProducts();
       renderCategories();
     }
@@ -1463,60 +1484,66 @@
       document.getElementById("categoryModal").classList.remove("open");
     }
 
-    document.getElementById("categoryForm")?.addEventListener("submit", (e) => {
+    document.getElementById("categoryForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const saveBtn = document.getElementById("btnSaveCategory");
+      saveBtn.disabled = true;
       const oldId = document.getElementById("catEditOldId").value;
       const catType = document.getElementById("catTypeSelect").value;
       const name = document.getElementById("catNameInput").value.trim().toUpperCase();
 
       if (!appData.categories[catType]) appData.categories[catType] = [];
 
-      if (oldId) {
-        // Rinomina
-        const found = appData.categories[catType].find(c => c.id === oldId);
-        if (found) {
-          found.name = name;
+      try {
+        if (oldId) {
+          // Rinomina
+          const found = appData.categories[catType].find(c => c.id === oldId);
+          if (found) {
+            found.name = name;
+            await saveCatalogToVercel(appData);
+            saveStore(appData);
+            showToast("Sottocategoria rinominata!");
+            closeCategoryModal();
+            renderCategories();
+            populateFilterSelect();
+            updateSubcatOptions(currentMacro);
+          }
+        } else {
+          // Creazione nuova sottocategoria
+          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          if (appData.categories[catType].some(c => c.id === slug)) {
+            alert("Una sottocategoria con questo identificatore esiste già!");
+            saveBtn.disabled = false;
+            return;
+          }
+          appData.categories[catType].push({ id: slug, name: name });
+          await saveCatalogToVercel(appData);
           saveStore(appData);
-          fetch(`/api/categories/${catType}/${oldId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name })
-          }).catch(() => {});
-          showToast("Sottocategoria rinominata!");
+          showToast("Sottocategoria creata online!");
           closeCategoryModal();
           renderCategories();
           populateFilterSelect();
           updateSubcatOptions(currentMacro);
         }
-      } else {
-        // Creazione nuova sottocategoria
-        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-        if (appData.categories[catType].some(c => c.id === slug)) {
-          alert("Una sottocategoria con questo identificatore esiste già!");
-          return;
-        }
-        appData.categories[catType].push({ id: slug, name: name });
-        saveStore(appData);
-        fetch("/api/categories", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: catType, name, id: slug })
-        }).catch(() => {});
-        showToast("Sottocategoria creata!");
-        closeCategoryModal();
-        renderCategories();
-        populateFilterSelect();
-        updateSubcatOptions(currentMacro);
+      } catch (err) {
+        console.error(err);
+        showToast("Errore salvataggio sottocategoria");
+      } finally {
+        saveBtn.disabled = false;
       }
     });
 
-    function deleteCategory(catType, subId) {
+    async function deleteCategory(catType, subId) {
       if (!confirm(`Sei sicuro di voler eliminare la sottocategoria '${subId.toUpperCase()}'?`)) return;
       appData.categories[catType] = (appData.categories[catType] || []).filter(c => c.id !== subId);
-      saveStore(appData);
-
-      fetch(`/api/categories/${catType}/${subId}`, { method: "DELETE" }).catch(() => {});
-      showToast("Sottocategoria eliminata!");
+      try {
+        await saveCatalogToVercel(appData);
+        saveStore(appData);
+        showToast("Sottocategoria eliminata online!");
+      } catch (err) {
+        console.error(err);
+        showToast("Errore eliminazione su Vercel");
+      }
       renderCategories();
       populateFilterSelect();
       updateSubcatOptions(currentMacro);

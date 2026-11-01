@@ -6,10 +6,6 @@
     {
       "source": "/admin",
       "destination": "/admin.html"
-    },
-    {
-      "source": "/api/data",
-      "destination": "/data.json"
     }
   ],
   "headers": [
