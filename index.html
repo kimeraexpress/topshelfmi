@@ -376,7 +376,6 @@
       display: block;
       pointer-events: none; /* lascia il click alla card */
       background: #090d1a;
-      opacity: 1;
     }
 
     /* Rimuove qualsiasi pulsante di riproduzione, triangolo o controllo nativo (iOS Safari, Android Chrome, ecc.) */
@@ -833,76 +832,7 @@
       renderAsh(activeFilter);
     }
 
-    /* ══════════════════════════════════════════════════
-       SMART VIEWPORT VIDEO STREAMING MANAGER (MAX 2 STREAM CONCORRENTI)
-       - Massimo 2 video in riproduzione contemporanea (solo quelli al centro dello schermo)
-       - Tutti gli altri video sono in pausa con frame congelato a 60fps
-       - Zero consumo di banda o GPU sui video non guardati
-    ══════════════════════════════════════════════════ */
-    const allRegisteredVideos = new Set();
-    let scrollRafId = null;
-
-    function updateActiveCenterVideos() {
-      if (document.getElementById("videoModal")?.classList.contains("open")) return;
-
-      const centerY = window.innerHeight / 2;
-      const candidates = [];
-
-      allRegisteredVideos.forEach(video => {
-        // Ignora video non visibili (es. tab nascosto)
-        if (video.offsetParent === null) {
-          video.pause();
-          return;
-        }
-
-        const rect = video.getBoundingClientRect();
-        // Controlla se la card è visibile nello schermo (anche parzialmente)
-        if (rect.bottom > 0 && rect.top < window.innerHeight) {
-          const vCenter = rect.top + rect.height / 2;
-          const dist = Math.abs(vCenter - centerY);
-          candidates.push({ video, dist });
-        } else {
-          video.pause();
-        }
-      });
-
-      // Ordina per vicinanza al centro esatto dello schermo
-      candidates.sort((a, b) => a.dist - b.dist);
-
-      // Limita a massimo 2 video attivi contemporaneamente (1 su schermi piccoli, 2 su tablet/desktop)
-      const maxActive = window.innerWidth < 640 ? 2 : 2;
-
-      candidates.forEach((item, index) => {
-        const v = item.video;
-        if (index < maxActive) {
-          // Video al centro dello schermo: avvia riproduzione
-          if (!v.src && v.dataset.src) {
-            v.src = v.dataset.src;
-          }
-          v.muted = true;
-          const p = v.play();
-          if (p !== undefined) {
-            p.then(() => v.classList.add("is-playing")).catch(() => {});
-          }
-        } else {
-          // Video visibile ma ai bordi dello schermo: mantieni in pausa (primo frame visibile senza laggare)
-          if (!v.src && v.dataset.src) {
-            v.src = v.dataset.src;
-          }
-          v.pause();
-        }
-      });
-    }
-
-    function scheduleVideoUpdate() {
-      if (scrollRafId) cancelAnimationFrame(scrollRafId);
-      scrollRafId = requestAnimationFrame(updateActiveCenterVideos);
-    }
-
-    window.addEventListener("scroll", scheduleVideoUpdate, { passive: true });
-    window.addEventListener("resize", scheduleVideoUpdate, { passive: true });
-
-    /* Costruisce la card identica alla reference: video in loop continuo al centro, badge VIDEO in alto a destra, nome in basso */
+    /* Costruisce la card identica alla reference: video 100% in loop continuo, badge VIDEO in alto a destra, nome in basso */
     function createVideoCard(product) {
       const card = document.createElement("div");
       card.className = "video-card";
@@ -915,24 +845,48 @@
         videoEl.setAttribute("playsinline", "");
         videoEl.setAttribute("webkit-playsinline", "");
         videoEl.setAttribute("x5-playsinline", "");
+        videoEl.setAttribute("autoplay", "");
         videoEl.setAttribute("loop", "");
-        videoEl.setAttribute("preload", "none");
+        videoEl.setAttribute("preload", "auto");
         videoEl.setAttribute("disablepictureinpicture", "");
         videoEl.setAttribute("disableremoteplayback", "");
-        if (product.poster) {
-          videoEl.setAttribute("poster", product.poster);
-        }
         videoEl.muted = true;
         videoEl.defaultMuted = true;
         videoEl.playsInline = true;
+        videoEl.autoplay = true;
         videoEl.loop = true;
-        videoEl.dataset.src = product.video;
+        videoEl.src = product.video;
 
-        videoEl.addEventListener("playing", () => {
-          videoEl.classList.add("is-playing");
+        const forcePlay = () => {
+          videoEl.muted = true;
+          const promise = videoEl.play();
+          if (promise !== undefined) {
+            promise.catch(() => {});
+          }
+        };
+
+        videoEl.addEventListener("loadedmetadata", forcePlay);
+        videoEl.addEventListener("loadeddata", forcePlay);
+        videoEl.addEventListener("canplay", forcePlay);
+        videoEl.addEventListener("canplaythrough", forcePlay);
+        videoEl.addEventListener("pause", () => {
+          if (!modal.classList.contains("open")) {
+            forcePlay();
+          }
         });
 
-        allRegisteredVideos.add(videoEl);
+        if ("IntersectionObserver" in window) {
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                forcePlay();
+              }
+            });
+          }, { threshold: 0.05 });
+          observer.observe(videoEl);
+        }
+
+        forcePlay();
         card.appendChild(videoEl);
 
         const badge = document.createElement("div");
@@ -971,13 +925,20 @@
       return card;
     }
 
-    ["touchstart", "touchend", "click", "mousedown"].forEach(evt => {
-      window.addEventListener(evt, scheduleVideoUpdate, { passive: true, capture: true });
+    /* Avvia tutti i video in loop continuo al primo tocco o scroll (supera i blocchi low-power di iOS Safari e Chrome) */
+    function wakeAllCardVideos() {
+      document.querySelectorAll(".video-card video").forEach(v => {
+        v.muted = true;
+        const p = v.play();
+        if (p !== undefined) p.catch(() => {});
+      });
+    }
+
+    ["touchstart", "touchend", "scroll", "click", "mousedown"].forEach(evt => {
+      window.addEventListener(evt, wakeAllCardVideos, { passive: true, capture: true });
     });
 
     function renderAsh(filter) {
-      allRegisteredVideos.forEach(v => v.pause());
-      allRegisteredVideos.clear();
       ashGrid.innerHTML = "";
       const items = (appData.products || []).filter(p => p.category === "ash" && (filter === "all" || p.subcategory === filter));
 
@@ -1003,12 +964,9 @@
       
       ashCountLabel.textContent = countText;
       filterTitleLabel.textContent = filter === "all" ? "SOTTOCATEGORIE ASH" : `ASH — ${getSubcatName(filter)}`;
-      scheduleVideoUpdate();
     }
 
     function renderWeed() {
-      allRegisteredVideos.forEach(v => v.pause());
-      allRegisteredVideos.clear();
       weedGrid.innerHTML = "";
       const items = (appData.products || []).filter(p => p.category === "weed");
 
@@ -1029,13 +987,9 @@
       }
 
       weedCountLabel.textContent = `${items.length} PRODOTTI (TUTTI I PRODOTTI)`;
-      scheduleVideoUpdate();
     }
 
     function openModal(product) {
-      // Mette in pausa tutti i video in background per dedicare 100% di GPU e banda al video grande
-      allRegisteredVideos.forEach(v => v.pause());
-
       modalTitle.textContent = product.strain;
       modalTag.textContent   = product.tag || getSubcatName(product.subcategory);
       modalVideo.src         = product.video;
@@ -1051,9 +1005,6 @@
       modalVideo.pause();
       modalVideo.src = "";
       document.body.style.overflow = "";
-
-      // Riattiva solo i video attualmente al centro dello schermo
-      scheduleVideoUpdate();
     }
 
     modalClose.addEventListener("click", closeModal);
@@ -1068,7 +1019,6 @@
 
         document.querySelectorAll(".gallery-section").forEach(s => s.classList.remove("active"));
         document.getElementById(`section-${cat}`).classList.add("active");
-        scheduleVideoUpdate();
       });
     });
 

@@ -1011,58 +1011,6 @@
     }
 
     /* ── COMUNICAZIONE CON VERCEL BLOB STORAGE & CATALOGO ── */
-    function extractPosterFromVideoFile(file) {
-      return new Promise((resolve) => {
-        try {
-          const v = document.createElement("video");
-          v.preload = "metadata";
-          v.muted = true;
-          v.playsInline = true;
-          const url = URL.createObjectURL(file);
-          v.src = url;
-          const timer = setTimeout(() => {
-            URL.revokeObjectURL(url);
-            resolve(null);
-          }, 4000);
-
-          v.onloadedmetadata = () => {
-            v.currentTime = Math.min(0.5, (v.duration || 1) / 2);
-          };
-
-          v.onseeked = () => {
-            clearTimeout(timer);
-            try {
-              const canvas = document.createElement("canvas");
-              const maxDim = 720;
-              let w = v.videoWidth || 720;
-              let h = v.videoHeight || 1280;
-              if (h > maxDim) {
-                w = Math.round((w * maxDim) / h);
-                h = maxDim;
-              }
-              canvas.width = w;
-              canvas.height = h;
-              const ctx = canvas.getContext("2d");
-              ctx.drawImage(v, 0, 0, w, h);
-              URL.revokeObjectURL(url);
-              canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.85);
-            } catch(e) {
-              URL.revokeObjectURL(url);
-              resolve(null);
-            }
-          };
-
-          v.onerror = () => {
-            clearTimeout(timer);
-            URL.revokeObjectURL(url);
-            resolve(null);
-          };
-        } catch(e) {
-          resolve(null);
-        }
-      });
-    }
-
     async function uploadVideoToVercel(file, onProgress) {
       const { upload } = await import("https://esm.sh/@vercel/blob/client");
       const blob = await upload(file.name, file, {
@@ -1214,7 +1162,7 @@
         const videoSrc = p.video ? (p.video.startsWith("http") || p.video.startsWith("blob:") || p.video.startsWith("data:") ? p.video : `/${p.video}`) : "";
         card.innerHTML = `
           <div class="prod-thumb-wrap">
-            ${p.poster ? `<img src="${p.poster}" style="width:100%;height:100%;object-fit:cover;" />` : (videoSrc ? `<video src="${videoSrc}" preload="none" muted loop playsinline webkit-playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:0.6rem;">NO VIDEO</div>`)}
+            ${videoSrc ? `<video src="${videoSrc}" autoplay muted loop playsinline webkit-playsinline disablepictureinpicture disableremoteplayback></video>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:0.6rem;">NO VIDEO</div>`}
           </div>
           <div class="prod-details">
             <div class="prod-badges">
@@ -1427,25 +1375,9 @@
       let videoPath = document.getElementById("prodVideoPath").value.trim();
 
       try {
-        let posterUrl = null;
-
         // Se è stato selezionato un file video dal telefono o PC
         if (fileInput.files && fileInput.files.length > 0) {
           const file = fileInput.files[0];
-
-          // 1. Estrazione automatica della copertina HD per streaming istantaneo su mobile
-          try {
-            saveBtn.textContent = "Creazione anteprima fluida...";
-            const posterBlob = await extractPosterFromVideoFile(file);
-            if (posterBlob) {
-              const posterFile = new File([posterBlob], `poster_${Date.now()}.jpg`, { type: "image/jpeg" });
-              posterUrl = await uploadVideoToVercel(posterFile);
-            }
-          } catch(posterErr) {
-            console.warn("Estrazione anteprima saltata:", posterErr);
-          }
-
-          // 2. Caricamento del video
           saveBtn.textContent = "Caricamento video su Vercel (0%)...";
           try {
             videoPath = await uploadVideoToVercel(file, (pct) => {
@@ -1477,8 +1409,7 @@
               subcategory: subcat,
               strain: strain,
               tag: tag || subcat.toUpperCase(),
-              video: videoPath,
-              ...(posterUrl ? { poster: posterUrl } : {})
+              video: videoPath
             };
           }
         } else {
@@ -1490,8 +1421,7 @@
             subcategory: subcat,
             strain: strain,
             tag: tag || subcat.toUpperCase(),
-            video: videoPath,
-            ...(posterUrl ? { poster: posterUrl } : {})
+            video: videoPath
           };
           appData.products.unshift(newProd);
         }
