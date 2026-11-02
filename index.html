@@ -376,6 +376,12 @@
       display: block;
       pointer-events: none; /* lascia il click alla card */
       background: #090d1a;
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+
+    .video-card video.is-playing {
+      opacity: 1;
     }
 
     /* Rimuove qualsiasi pulsante di riproduzione, triangolo o controllo nativo (iOS Safari, Android Chrome, ecc.) */
@@ -832,6 +838,42 @@
       renderAsh(activeFilter);
     }
 
+    /* ══════════════════════════════════════════════════
+       SMART VIEWPORT VIDEO STREAMING MANAGER (PUNTI 2 & 3)
+       - Punto 2: Streaming frammentato con preload="none" (scarica solo i pochi secondi visibili)
+       - Punto 3: Riproduzione solo di ciò che è a schermo (massimo 2-4 video attivi)
+       - Video fuori schermo messi in pausa e memoria/decoder GPU liberati
+    ══════════════════════════════════════════════════ */
+    const visibleCardVideos = new Set();
+
+    const videoObserver = ("IntersectionObserver" in window)
+      ? new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            const video = entry.target;
+            if (entry.isIntersecting) {
+              visibleCardVideos.add(video);
+              // Inserisci src solo quando entra nel campo visivo
+              if (!video.src && video.dataset.src) {
+                video.src = video.dataset.src;
+                video.load();
+              }
+              video.muted = true;
+              const p = video.play();
+              if (p !== undefined) {
+                p.then(() => video.classList.add("is-playing")).catch(() => {});
+              }
+            } else {
+              visibleCardVideos.delete(video);
+              // Pausa immediata: ferma il download dei blocchi successivi e libera GPU
+              video.pause();
+            }
+          });
+        }, {
+          rootMargin: "140px 0px 140px 0px", // Pre-buffering di 140px prima dello scroll
+          threshold: 0.08
+        })
+      : null;
+
     /* Costruisce la card identica alla reference: video 100% in loop continuo, badge VIDEO in alto a destra, nome in basso */
     function createVideoCard(product) {
       const card = document.createElement("div");
@@ -845,48 +887,27 @@
         videoEl.setAttribute("playsinline", "");
         videoEl.setAttribute("webkit-playsinline", "");
         videoEl.setAttribute("x5-playsinline", "");
-        videoEl.setAttribute("autoplay", "");
         videoEl.setAttribute("loop", "");
-        videoEl.setAttribute("preload", "auto");
+        videoEl.setAttribute("preload", "none"); // PUNTO 2: zero download preventivo
         videoEl.setAttribute("disablepictureinpicture", "");
         videoEl.setAttribute("disableremoteplayback", "");
         videoEl.muted = true;
         videoEl.defaultMuted = true;
         videoEl.playsInline = true;
-        videoEl.autoplay = true;
         videoEl.loop = true;
-        videoEl.src = product.video;
+        videoEl.dataset.src = product.video; // Salvato per il caricamento on-demand
 
-        const forcePlay = () => {
-          videoEl.muted = true;
-          const promise = videoEl.play();
-          if (promise !== undefined) {
-            promise.catch(() => {});
-          }
-        };
-
-        videoEl.addEventListener("loadedmetadata", forcePlay);
-        videoEl.addEventListener("loadeddata", forcePlay);
-        videoEl.addEventListener("canplay", forcePlay);
-        videoEl.addEventListener("canplaythrough", forcePlay);
-        videoEl.addEventListener("pause", () => {
-          if (!modal.classList.contains("open")) {
-            forcePlay();
-          }
+        videoEl.addEventListener("playing", () => {
+          videoEl.classList.add("is-playing");
         });
 
-        if ("IntersectionObserver" in window) {
-          const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-              if (entry.isIntersecting) {
-                forcePlay();
-              }
-            });
-          }, { threshold: 0.05 });
-          observer.observe(videoEl);
+        if (videoObserver) {
+          videoObserver.observe(videoEl);
+        } else {
+          videoEl.src = product.video;
+          videoEl.play().catch(() => {});
         }
 
-        forcePlay();
         card.appendChild(videoEl);
 
         const badge = document.createElement("div");
@@ -925,17 +946,23 @@
       return card;
     }
 
-    /* Avvia tutti i video in loop continuo al primo tocco o scroll (supera i blocchi low-power di iOS Safari e Chrome) */
-    function wakeAllCardVideos() {
-      document.querySelectorAll(".video-card video").forEach(v => {
-        v.muted = true;
-        const p = v.play();
-        if (p !== undefined) p.catch(() => {});
+    /* Riattiva SOLO i video visibili al tocco o scroll (PUNTO 3 - senza svegliare quelli fuori schermo) */
+    function wakeVisibleVideos() {
+      visibleCardVideos.forEach(video => {
+        if (!video.src && video.dataset.src) {
+          video.src = video.dataset.src;
+          video.load();
+        }
+        video.muted = true;
+        const p = video.play();
+        if (p !== undefined) {
+          p.then(() => video.classList.add("is-playing")).catch(() => {});
+        }
       });
     }
 
     ["touchstart", "touchend", "scroll", "click", "mousedown"].forEach(evt => {
-      window.addEventListener(evt, wakeAllCardVideos, { passive: true, capture: true });
+      window.addEventListener(evt, wakeVisibleVideos, { passive: true, capture: true });
     });
 
     function renderAsh(filter) {
@@ -990,6 +1017,9 @@
     }
 
     function openModal(product) {
+      // Mette in pausa tutti i video in background per dedicare 100% di GPU e banda al video grande
+      document.querySelectorAll(".video-card video").forEach(v => v.pause());
+
       modalTitle.textContent = product.strain;
       modalTag.textContent   = product.tag || getSubcatName(product.subcategory);
       modalVideo.src         = product.video;
@@ -1005,6 +1035,9 @@
       modalVideo.pause();
       modalVideo.src = "";
       document.body.style.overflow = "";
+
+      // Riattiva solo i video attualmente visibili nello schermo
+      wakeVisibleVideos();
     }
 
     modalClose.addEventListener("click", closeModal);
