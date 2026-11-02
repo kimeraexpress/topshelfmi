@@ -728,181 +728,148 @@
   <!-- ═══════ JAVASCRIPT & PRODUCT LIST ═══════ -->
   <script>
     /* ══════════════════════════════════════════════════
-       LISTA PRODOTTI
-       ──────────────────────────────────────────────
-       Per aggiungere un nuovo prodotto:
-       1. Trascina il video nella cartella corrispondente:
-          - videos/ash/static/
-          - videos/ash/fresh-frozen/
-          - videos/ash/dry-sift/
-          - videos/ash/mousse/
-          - videos/ash/work/
-          - videos/weed/
-
-       2. Aggiungi un elemento all'array PRODUCTS:
-       {
-         category:    "ash",                          // "ash" o "weed"
-         subcategory: "static",                       // "static" | "fresh-frozen" | "dry-sift" | "mousse" | "work" (oppure "" per weed)
-         strain:      "NOME DELLO STRAIN",            // Mostrato in grande sulla card
-         tag:         "STATIC",                       // Etichetta gialla sopra lo strain (es. "STATIC", "FRUTATECH FARM", ecc.)
-         video:       "videos/ash/static/nomevideo.mp4"
-       }
+       TOPSHELFMI — GALLERY ENGINE v2
+       Pre-render all cards once, filter with CSS only.
+       IntersectionObserver handles play/pause per viewport.
     ══════════════════════════════════════════════════ */
-    // Dati iniziali di fallback (anche per apertura offline/locale)
+
     let appData = {
       categories: {
         ash: [
-          { id: "static", name: "STATIC" },
-          { id: "fresh-frozen", name: "FRESH FROZEN" },
-          { id: "dry-sift", name: "DRY SIFT" },
-          { id: "mousse", name: "MOUSSE" },
-          { id: "work", name: "WORK" }
+          { id: "static",      name: "STATIC"      },
+          { id: "fresh-frozen",name: "FRESH FROZEN" },
+          { id: "dry-sift",    name: "DRY SIFT"     },
+          { id: "mousse",      name: "MOUSSE"       },
+          { id: "work",        name: "WORK"         },
+          { id: "plasma-static", name: "PLASMA"     },
+          { id: "dry-sift-90u",  name: "DRY SIFT 90U" }
         ],
         weed: []
       },
       products: [
-        {
-          id: "prod_1",
-          category: "ash",
-          subcategory: "static",
-          strain: "BLACK MAGIC - FRIED BANANA",
-          tag: "STATIC",
-          video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4"
-        },
-        {
-          id: "prod_2",
-          category: "ash",
-          subcategory: "static",
-          strain: "BLACK MAGIC - YELLOW GMOZ",
-          tag: "STATIC",
-          video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4"
-        }
+        { id: "prod_1", category: "ash", subcategory: "static", strain: "BLACK MAGIC - FRIED BANANA", tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4" },
+        { id: "prod_2", category: "ash", subcategory: "static", strain: "BLACK MAGIC - YELLOW GMOZ",  tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4" }
       ]
     };
 
-    let activeFilter = "all";
+    let activeFilter  = "all";
+    let activeSection = "ash";
 
-    const ashGrid         = document.getElementById("ashGrid");
-    const weedGrid        = document.getElementById("weedGrid");
-    const ashCountLabel   = document.getElementById("ashCountLabel");
-    const weedCountLabel  = document.getElementById("weedCountLabel");
-    const filterTitleLabel= document.getElementById("filterTitleLabel");
-    const ashPillsRow     = document.getElementById("ashPillsRow");
-    const modal           = document.getElementById("videoModal");
-    const modalVideo      = document.getElementById("modalVideo");
-    const modalTitle      = document.getElementById("modalTitle");
-    const modalTag        = document.getElementById("modalTag");
-    const modalClose      = document.getElementById("modalClose");
+    const ashGrid          = document.getElementById("ashGrid");
+    const weedGrid         = document.getElementById("weedGrid");
+    const ashCountLabel    = document.getElementById("ashCountLabel");
+    const weedCountLabel   = document.getElementById("weedCountLabel");
+    const filterTitleLabel = document.getElementById("filterTitleLabel");
+    const ashPillsRow      = document.getElementById("ashPillsRow");
+    const modal            = document.getElementById("videoModal");
+    const modalVideo       = document.getElementById("modalVideo");
+    const modalTitle       = document.getElementById("modalTitle");
+    const modalTag         = document.getElementById("modalTag");
+    const modalClose       = document.getElementById("modalClose");
+
+    const STORE_KEY = "topshelf_store_v2";
+
+    const DEFAULT_DATA = {
+      categories: {
+        ash: [
+          { id: "static",      name: "STATIC"      },
+          { id: "fresh-frozen",name: "FRESH FROZEN" },
+          { id: "dry-sift",    name: "DRY SIFT"     },
+          { id: "mousse",      name: "MOUSSE"       },
+          { id: "work",        name: "WORK"         },
+          { id: "plasma-static", name: "PLASMA"     },
+          { id: "dry-sift-90u",  name: "DRY SIFT 90U" }
+        ],
+        weed: []
+      },
+      products: [
+        { id: "prod_1", category: "ash", subcategory: "static", strain: "BLACK MAGIC - FRIED BANANA", tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4" },
+        { id: "prod_2", category: "ash", subcategory: "static", strain: "BLACK MAGIC - YELLOW GMOZ",  tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4" }
+      ]
+    };
+
+    /* ── IntersectionObserver globale: play quando >10% visibile, pause altrimenti ── */
+    const videoObserver = ("IntersectionObserver" in window)
+      ? new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            const v = entry.target;
+            if (entry.isIntersecting && !modal.classList.contains("open")) {
+              v.muted = true;
+              v.play().catch(() => {});
+            } else if (!entry.isIntersecting) {
+              v.pause();
+            }
+          });
+        }, { threshold: 0.10 })
+      : null;
 
     function getSubcatName(id) {
       if (id === "all") return "TUTTI I PRODOTTI";
-      const found = (appData.categories.ash || []).find(c => c.id === id);
+      const cats = [
+        ...(appData.categories.ash  || []),
+        ...(appData.categories.weed || [])
+      ];
+      const found = cats.find(c => c.id === id);
       return found ? found.name : id.toUpperCase();
     }
 
-    /* Genera dinamicamente le pillole delle sottocategorie */
-    function renderSubcategoryPills() {
-      if (!ashPillsRow) return;
-      ashPillsRow.innerHTML = "";
-
-      // Pulsante TUTTI
-      const btnAll = document.createElement("button");
-      btnAll.className = `pill-btn ${activeFilter === "all" ? "active" : ""}`;
-      btnAll.dataset.filter = "all";
-      btnAll.textContent = "TUTTI";
-      btnAll.onclick = () => selectFilter("all");
-      ashPillsRow.appendChild(btnAll);
-
-      // Tutte le sottocategorie definite
-      (appData.categories.ash || []).forEach(c => {
-        const btn = document.createElement("button");
-        btn.className = `pill-btn ${activeFilter === c.id ? "active" : ""}`;
-        btn.dataset.filter = c.id;
-        btn.textContent = c.name;
-        btn.onclick = () => selectFilter(c.id);
-        ashPillsRow.appendChild(btn);
-      });
-    }
-
-    function selectFilter(filterId) {
-      activeFilter = filterId;
-      document.querySelectorAll(".pill-btn").forEach(b => {
-        b.classList.toggle("active", b.dataset.filter === filterId);
-      });
-      renderAsh(activeFilter);
-    }
-
-    /* Costruisce la card identica alla reference: video 100% in loop continuo, badge VIDEO in alto a destra, nome in basso */
+    /* ── Crea video card (eseguito una volta per ogni prodotto) ── */
     function createVideoCard(product) {
       const card = document.createElement("div");
       card.className = "video-card";
+      card.dataset.subcategory = product.subcategory || "";
+      card.dataset.category    = product.category    || "";
 
-      const hasVideo = product.video && product.video.trim() !== "";
+      const hasVideo = !!(product.video && product.video.trim());
 
       if (hasVideo) {
         const videoEl = document.createElement("video");
-        videoEl.setAttribute("muted", "");
-        videoEl.setAttribute("playsinline", "");
-        videoEl.setAttribute("webkit-playsinline", "");
-        videoEl.setAttribute("x5-playsinline", "");
-        videoEl.setAttribute("autoplay", "");
-        videoEl.setAttribute("loop", "");
-        videoEl.setAttribute("preload", "auto");
+        videoEl.setAttribute("muted",                  "");
+        videoEl.setAttribute("playsinline",             "");
+        videoEl.setAttribute("webkit-playsinline",      "");
+        videoEl.setAttribute("x5-playsinline",          "");
+        videoEl.setAttribute("loop",                    "");
+        videoEl.setAttribute("preload",                 "auto");
         videoEl.setAttribute("disablepictureinpicture", "");
-        videoEl.setAttribute("disableremoteplayback", "");
-        videoEl.muted = true;
+        videoEl.setAttribute("disableremoteplayback",   "");
+        videoEl.muted        = true;
         videoEl.defaultMuted = true;
-        videoEl.playsInline = true;
-        videoEl.autoplay = true;
-        videoEl.loop = true;
-        videoEl.src = product.video;
+        videoEl.playsInline  = true;
+        videoEl.loop         = true;
+        videoEl.src          = product.video;
 
-        const forcePlay = () => {
+        const tryPlay = () => {
           videoEl.muted = true;
-          const promise = videoEl.play();
-          if (promise !== undefined) {
-            promise.catch(() => {});
-          }
+          videoEl.play().catch(() => {});
         };
 
-        videoEl.addEventListener("loadedmetadata", forcePlay);
-        videoEl.addEventListener("loadeddata", forcePlay);
-        videoEl.addEventListener("canplay", forcePlay);
-        videoEl.addEventListener("canplaythrough", forcePlay);
+        videoEl.addEventListener("canplay",        tryPlay, { once: true });
+        videoEl.addEventListener("loadedmetadata", tryPlay, { once: true });
+
+        // Restart se messo in pausa da browser (non da noi)
         videoEl.addEventListener("pause", () => {
-          if (!modal.classList.contains("open")) {
-            forcePlay();
-          }
+          if (modal.classList.contains("open")) return;
+          const card = videoEl.closest(".video-card");
+          if (card && card.style.display === "none") return;
+          tryPlay();
         });
 
-        if ("IntersectionObserver" in window) {
-          const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-              if (entry.isIntersecting) {
-                forcePlay();
-              }
-            });
-          }, { threshold: 0.05 });
-          observer.observe(videoEl);
-        }
+        if (videoObserver) videoObserver.observe(videoEl);
 
-        forcePlay();
+        card._video = videoEl;
         card.appendChild(videoEl);
 
         const badge = document.createElement("div");
         badge.className = "card-video-badge";
-        badge.innerHTML = `<span class="card-video-badge-dot"></span>VIDEO`;
+        badge.innerHTML = '<span class="card-video-badge-dot"></span>VIDEO';
         card.appendChild(badge);
+
+        card.addEventListener("click", () => openModal(product));
       } else {
-        const placeholder = document.createElement("div");
-        placeholder.className = "card-no-video";
-        placeholder.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
-            <path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
-          </svg>
-          <span>VIDEO IN ARRIVO</span>
-        `;
-        card.appendChild(placeholder);
+        const ph = document.createElement("div");
+        ph.className = "card-no-video";
+        ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg><span>VIDEO IN ARRIVO</span>';
+        card.appendChild(ph);
       }
 
       const overlay = document.createElement("div");
@@ -912,83 +879,131 @@
       const content = document.createElement("div");
       content.className = "card-content";
       const tagText = product.tag || getSubcatName(product.subcategory);
-      content.innerHTML = `
-        <div class="card-tag">${tagText}</div>
-        <div class="card-title">${product.strain}</div>
-      `;
+      content.innerHTML = '<div class="card-tag">' + tagText + '</div><div class="card-title">' + product.strain + '</div>';
       card.appendChild(content);
-
-      if (hasVideo) {
-        card.addEventListener("click", () => openModal(product));
-      }
 
       return card;
     }
 
-    /* Avvia tutti i video in loop continuo al primo tocco o scroll (supera i blocchi low-power di iOS Safari e Chrome) */
-    function wakeAllCardVideos() {
-      document.querySelectorAll(".video-card video").forEach(v => {
-        v.muted = true;
-        const p = v.play();
-        if (p !== undefined) p.catch(() => {});
+    function emptyStateHTML(sub) {
+      return '<div class="empty-state"><div class="empty-state-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg></div><p>NESSUN PRODOTTO PRESENTE</p><small>' + sub + '</small></div>';
+    }
+
+    /* ── Costruisce TUTTE le card UNA VOLTA SOLA (o al refresh dati) ── */
+    function buildAllCards() {
+      // Ferma tutti i video in corso prima di svuotare il DOM
+      [ashGrid, weedGrid].forEach(grid => {
+        grid.querySelectorAll("video").forEach(v => { try { v.pause(); } catch(e){} });
+        grid.innerHTML = "";
+      });
+
+      const ashProducts  = (appData.products || []).filter(p => p.category === "ash");
+      const weedProducts = (appData.products || []).filter(p => p.category === "weed");
+
+      if (ashProducts.length === 0) {
+        ashGrid.innerHTML = emptyStateHTML("Usa il pannello admin per caricare un video");
+      } else {
+        ashProducts.forEach(p => ashGrid.appendChild(createVideoCard(p)));
+      }
+
+      if (weedProducts.length === 0) {
+        weedGrid.innerHTML = emptyStateHTML("Usa il pannello admin per caricare video in WEED");
+      } else {
+        weedProducts.forEach(p => weedGrid.appendChild(createVideoCard(p)));
+      }
+
+      // Aggiorna conteggi e filtro attivo (senza pillole)
+      applyFilter(activeFilter, false);
+      if (weedCountLabel) weedCountLabel.textContent = weedProducts.length + " PRODOTTI (TUTTI I PRODOTTI)";
+    }
+
+    /* ── Filtra ASH con show/hide CSS – NESSUN re-render ── */
+    function applyFilter(filterId, updatePills) {
+      if (updatePills === undefined) updatePills = true;
+      activeFilter = filterId;
+
+      if (updatePills) {
+        document.querySelectorAll(".pill-btn").forEach(b =>
+          b.classList.toggle("active", b.dataset.filter === filterId)
+        );
+      }
+
+      let visible = 0;
+      ashGrid.querySelectorAll(".video-card").forEach(card => {
+        const show = filterId === "all" || card.dataset.subcategory === filterId;
+        card.style.display = show ? "" : "none";
+        if (show) {
+          visible++;
+          // Riprendi il video se era stato messo in pausa
+          if (card._video && activeSection === "ash") {
+            card._video.muted = true;
+            card._video.play().catch(() => {});
+          }
+        } else {
+          if (card._video) card._video.pause();
+        }
+      });
+
+      const countText = filterId === "all"
+        ? (visible + " PRODOTTI (TUTTI I PRODOTTI)")
+        : (visible + " PRODOTT" + (visible !== 1 ? "I" : "O"));
+      if (ashCountLabel)    ashCountLabel.textContent    = countText;
+      if (filterTitleLabel) filterTitleLabel.textContent = filterId === "all"
+        ? "SOTTOCATEGORIE ASH"
+        : ("ASH — " + getSubcatName(filterId));
+    }
+
+    function selectFilter(filterId) { applyFilter(filterId, true); }
+
+    /* ── Pills sottocategorie ── */
+    function renderSubcategoryPills() {
+      if (!ashPillsRow) return;
+      ashPillsRow.innerHTML = "";
+
+      const all = document.createElement("button");
+      all.className = "pill-btn" + (activeFilter === "all" ? " active" : "");
+      all.dataset.filter = "all";
+      all.textContent = "TUTTI";
+      all.onclick = () => selectFilter("all");
+      ashPillsRow.appendChild(all);
+
+      (appData.categories.ash || []).forEach(c => {
+        const btn = document.createElement("button");
+        btn.className = "pill-btn" + (activeFilter === c.id ? " active" : "");
+        btn.dataset.filter = c.id;
+        btn.textContent = c.name;
+        btn.onclick = () => selectFilter(c.id);
+        ashPillsRow.appendChild(btn);
       });
     }
 
-    ["touchstart", "touchend", "scroll", "click", "mousedown"].forEach(evt => {
-      window.addEventListener(evt, wakeAllCardVideos, { passive: true, capture: true });
-    });
+    /* ── Switch sezione ASH ↔ WEED ── */
+    function switchSection(cat) {
+      activeSection = cat;
+      document.querySelectorAll(".macro-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.main === cat)
+      );
+      document.querySelectorAll(".gallery-section").forEach(s => s.classList.remove("active"));
 
-    function renderAsh(filter) {
-      ashGrid.innerHTML = "";
-      const items = (appData.products || []).filter(p => p.category === "ash" && (filter === "all" || p.subcategory === filter));
+      const section = document.getElementById("section-" + cat);
+      section.classList.add("active");
 
-      if (items.length === 0) {
-        ashGrid.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
-              </svg>
-            </div>
-            <p>NESSUN PRODOTTO PRESENTE</p>
-            <small>Usa il pannello admin per caricare un video o sincronizzare le cartelle</small>
-          </div>
-        `;
-      } else {
-        items.forEach(p => ashGrid.appendChild(createVideoCard(p)));
-      }
-
-      const countText = filter === "all" 
-        ? `${items.length} PRODOTTI (TUTTI I PRODOTTI)` 
-        : `${items.length} PRODOTTO${items.length !== 1 ? 'I' : ''}`;
-      
-      ashCountLabel.textContent = countText;
-      filterTitleLabel.textContent = filter === "all" ? "SOTTOCATEGORIE ASH" : `ASH — ${getSubcatName(filter)}`;
+      // Dopo che il browser ha applicato il layout, avvia play su tutti i video visibili
+      requestAnimationFrame(() => {
+        section.querySelectorAll(".video-card").forEach(card => {
+          if (card.style.display !== "none" && card._video) {
+            card._video.muted = true;
+            card._video.play().catch(() => {});
+          }
+        });
+      });
     }
 
-    function renderWeed() {
-      weedGrid.innerHTML = "";
-      const items = (appData.products || []).filter(p => p.category === "weed");
+    document.querySelectorAll(".macro-btn").forEach(btn =>
+      btn.addEventListener("click", () => switchSection(btn.dataset.main))
+    );
 
-      if (items.length === 0) {
-        weedGrid.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 5h2v6h-2zm0 8h2v2h-2z"/>
-              </svg>
-            </div>
-            <p>NESSUN PRODOTTO PRESENTE</p>
-            <small>Usa il pannello admin per caricare video in WEED</small>
-          </div>
-        `;
-      } else {
-        items.forEach(p => weedGrid.appendChild(createVideoCard(p)));
-      }
-
-      weedCountLabel.textContent = `${items.length} PRODOTTI (TUTTI I PRODOTTI)`;
-    }
-
+    /* ── Modal ── */
     function openModal(product) {
       modalTitle.textContent = product.strain;
       modalTag.textContent   = product.tag || getSubcatName(product.subcategory);
@@ -1005,109 +1020,77 @@
       modalVideo.pause();
       modalVideo.src = "";
       document.body.style.overflow = "";
+      // Riprendi video visibili dopo chiusura modale
+      setTimeout(() => {
+        const section = document.getElementById("section-" + activeSection);
+        if (section) {
+          section.querySelectorAll(".video-card").forEach(card => {
+            if (card.style.display !== "none" && card._video) {
+              card._video.muted = true;
+              card._video.play().catch(() => {});
+            }
+          });
+        }
+      }, 80);
     }
 
     modalClose.addEventListener("click", closeModal);
     modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-    document.querySelectorAll(".macro-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const cat = btn.dataset.main;
-        document.querySelectorAll(".macro-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-
-        document.querySelectorAll(".gallery-section").forEach(s => s.classList.remove("active"));
-        document.getElementById(`section-${cat}`).classList.add("active");
+    /* ── Wake on first user interaction (solo una volta) ── */
+    let _woken = false;
+    function wakeOnce() {
+      if (_woken) return;
+      _woken = true;
+      document.querySelectorAll(".video-card video").forEach(v => {
+        v.muted = true;
+        v.play().catch(() => {});
       });
-    });
+    }
+    ["touchstart", "click", "scroll"].forEach(evt =>
+      window.addEventListener(evt, wakeOnce, { passive: true, capture: true })
+    );
 
-    const STORE_KEY = "topshelf_store_v1";
-
-    const DEFAULT_DATA = {
-      categories: {
-        ash: [
-          { id: "static", name: "STATIC" },
-          { id: "fresh-frozen", name: "FRESH FROZEN" },
-          { id: "dry-sift", name: "DRY SIFT" },
-          { id: "mousse", name: "MOUSSE" },
-          { id: "work", name: "WORK" }
-        ],
-        weed: []
-      },
-      products: [
-        {
-          id: "prod_1",
-          category: "ash",
-          subcategory: "static",
-          strain: "BLACK MAGIC - FRIED BANANA",
-          tag: "STATIC",
-          video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4"
-        },
-        {
-          id: "prod_2",
-          category: "ash",
-          subcategory: "static",
-          strain: "BLACK MAGIC - YELLOW GMOZ",
-          tag: "STATIC",
-          video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4"
-        }
-      ]
-    };
-
-    /* Carica dati dinamici da Vercel / server (con fallback locale) */
+    /* ── Init: fetch dati da Vercel ── */
     async function initGallery() {
       try {
         const res = await fetch("/api/data?t=" + Date.now(), {
           cache: "no-store",
           headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
         });
-        if (res.ok) {
-          const remoteData = await res.json();
-          if (remoteData && remoteData.categories) {
-            appData = remoteData;
-            try { localStorage.setItem(STORE_KEY, JSON.stringify(appData)); } catch(e) {}
-          }
-        } else {
-          throw new Error("HTTP " + res.status);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const remote = await res.json();
+        if (remote && remote.categories) {
+          appData = remote;
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(appData)); } catch(e) {}
         }
       } catch (e) {
-        // Fallback offline a localStorage se la rete non è disponibile
         try {
           const raw = localStorage.getItem(STORE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.categories) appData = parsed;
-          }
-        } catch (err) {}
+          if (raw) { const p = JSON.parse(raw); if (p && p.categories) appData = p; }
+        } catch(err) {}
       }
 
-      // Garanzie di fallback se le strutture sono vuote
       if (!appData.categories) appData.categories = { ash: [], weed: [] };
-      if (!appData.categories.ash || appData.categories.ash.length === 0) {
+      if (!appData.categories.ash || !appData.categories.ash.length)
         appData.categories.ash = JSON.parse(JSON.stringify(DEFAULT_DATA.categories.ash));
-      }
-      if (!Array.isArray(appData.products)) {
-        appData.products = [];
-      }
-      if (appData.products.length === 0 && !localStorage.getItem("topshelf_cleared_by_user")) {
+      if (!Array.isArray(appData.products)) appData.products = [];
+      if (!appData.products.length && !localStorage.getItem("topshelf_cleared_by_user"))
         appData.products = JSON.parse(JSON.stringify(DEFAULT_DATA.products));
-      }
 
       renderSubcategoryPills();
-      renderAsh(activeFilter);
-      renderWeed();
+      buildAllCards();
     }
 
-    // Sincronizzazione in tempo reale con il pannello Admin
+    // Sync real-time con admin panel
     const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("topshelf_sync_bus") : null;
     if (syncChannel) {
       syncChannel.onmessage = (event) => {
         if (event.data && event.data.data) {
           appData = event.data.data;
           renderSubcategoryPills();
-          renderAsh(activeFilter);
-          renderWeed();
+          buildAllCards();
         }
       };
     }
@@ -1115,17 +1098,20 @@
     window.addEventListener("storage", (e) => {
       if (e.key === STORE_KEY && e.newValue) {
         try {
-          appData = JSON.parse(e.newValue);
-          renderSubcategoryPills();
-          renderAsh(activeFilter);
-          renderWeed();
-        } catch (err) {}
+          const p = JSON.parse(e.newValue);
+          if (p && p.categories) {
+            appData = p;
+            renderSubcategoryPills();
+            buildAllCards();
+          }
+        } catch(err) {}
       }
     });
 
-    // Quando l'utente torna sulla pagina, ricarica automaticamente i prodotti
+    // Al ritorno su focus: solo wake video (non ricostruisce tutto)
     window.addEventListener("focus", () => {
-      initGallery();
+      _woken = false;
+      wakeOnce();
     });
 
     initGallery();
