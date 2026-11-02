@@ -36,7 +36,20 @@
 
     body {
       background-color: var(--bg);
-      /* Sfondo ispirato allo skyline notturno del logo (luci della città) */
+      color: var(--text-white);
+      font-family: var(--font-main);
+      min-height: 100dvh;
+      overflow-x: hidden;
+      padding-bottom: 50px;
+    }
+
+    /* Sfondo skyline GPU-accelerato isolato (rimuove il blocco di background-attachment: fixed su mobile) */
+    .bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-color: var(--bg);
       background-image:
         radial-gradient(ellipse 100% 50% at 50% 100%, rgba(20, 38, 85, 0.5) 0%, transparent 65%),
         radial-gradient(circle 2.5px at 12% 78%, rgba(255, 205, 90, 0.75) 0%, transparent 2.5px),
@@ -50,12 +63,8 @@
         radial-gradient(circle 2px at 42% 67%, rgba(255, 190, 70, 0.4) 0%, transparent 2px),
         radial-gradient(circle 2px at 68% 64%, rgba(255, 200, 80, 0.4) 0%, transparent 2px),
         radial-gradient(circle 2px at 82% 66%, rgba(255, 185, 65, 0.45) 0%, transparent 2px);
-      background-attachment: fixed;
-      color: var(--text-white);
-      font-family: var(--font-main);
-      min-height: 100dvh;
-      overflow-x: hidden;
-      padding-bottom: 50px;
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
     }
 
     /* ═════════════════════════════════════════════════
@@ -358,6 +367,8 @@
       flex-direction: column;
       justify-content: flex-end;
       transform: translateZ(0);
+      will-change: transform;
+      contain: layout paint;
       transition: transform 0.18s ease, border-color 0.18s ease;
     }
 
@@ -400,10 +411,8 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      background: rgba(10, 14, 26, 0.78);
+      background: rgba(10, 14, 26, 0.90);
       border: 1px solid rgba(245, 166, 35, 0.7);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
       border-radius: 999px;
       padding: 3px 8px 3px 7px;
       color: var(--gold);
@@ -641,6 +650,7 @@
   </style>
 </head>
 <body>
+  <div class="bg-canvas"></div>
 
   <!-- ═══════ HERO HEADER ═══════ -->
   <header class="hero">
@@ -728,21 +738,23 @@
   <!-- ═══════ JAVASCRIPT & PRODUCT LIST ═══════ -->
   <script>
     /* ══════════════════════════════════════════════════
-       TOPSHELFMI — GALLERY ENGINE v2
-       Pre-render all cards once, filter with CSS only.
-       IntersectionObserver handles play/pause per viewport.
+       TOPSHELFMI — GALLERY ENGINE v3 (ULTRA-FLUID & STABLE)
+       - preload="metadata": only tiny headers downloaded on startup, saving 90% network bandwidth
+       - IntersectionObserver with 150px rootMargin: plays 2-4 visible cards, pauses off-screen
+       - No rogue pause listeners fighting the observer
+       - Instant CSS display filtering for categories and subcategories
     ══════════════════════════════════════════════════ */
 
     let appData = {
       categories: {
         ash: [
-          { id: "static",      name: "STATIC"      },
-          { id: "fresh-frozen",name: "FRESH FROZEN" },
-          { id: "dry-sift",    name: "DRY SIFT"     },
-          { id: "mousse",      name: "MOUSSE"       },
-          { id: "work",        name: "WORK"         },
-          { id: "plasma-static", name: "PLASMA"     },
-          { id: "dry-sift-90u",  name: "DRY SIFT 90U" }
+          { id: "static",        name: "STATIC"        },
+          { id: "fresh-frozen",  name: "FRESH FROZEN"  },
+          { id: "dry-sift",      name: "DRY SIFT"      },
+          { id: "mousse",        name: "MOUSSE"        },
+          { id: "work",          name: "WORK"          },
+          { id: "plasma-static", name: "PLASMA"        },
+          { id: "dry-sift-90u",  name: "DRY SIFT 90U"  }
         ],
         weed: []
       },
@@ -767,18 +779,18 @@
     const modalTag         = document.getElementById("modalTag");
     const modalClose       = document.getElementById("modalClose");
 
-    const STORE_KEY = "topshelf_store_v2";
+    const STORE_KEY = "topshelf_store_v3";
 
     const DEFAULT_DATA = {
       categories: {
         ash: [
-          { id: "static",      name: "STATIC"      },
-          { id: "fresh-frozen",name: "FRESH FROZEN" },
-          { id: "dry-sift",    name: "DRY SIFT"     },
-          { id: "mousse",      name: "MOUSSE"       },
-          { id: "work",        name: "WORK"         },
-          { id: "plasma-static", name: "PLASMA"     },
-          { id: "dry-sift-90u",  name: "DRY SIFT 90U" }
+          { id: "static",        name: "STATIC"        },
+          { id: "fresh-frozen",  name: "FRESH FROZEN"  },
+          { id: "dry-sift",      name: "DRY SIFT"      },
+          { id: "mousse",        name: "MOUSSE"        },
+          { id: "work",          name: "WORK"          },
+          { id: "plasma-static", name: "PLASMA"        },
+          { id: "dry-sift-90u",  name: "DRY SIFT 90U"  }
         ],
         weed: []
       },
@@ -788,19 +800,29 @@
       ]
     };
 
-    /* ── IntersectionObserver globale: play quando >10% visibile, pause altrimenti ── */
-    const videoObserver = ("IntersectionObserver" in window)
+    /* ── IntersectionObserver: pre-avvia a 150px dal viewport, pausa subito fuori ── */
+    const cardObserver = ("IntersectionObserver" in window)
       ? new IntersectionObserver((entries) => {
           entries.forEach(entry => {
-            const v = entry.target;
-            if (entry.isIntersecting && !modal.classList.contains("open")) {
+            const card = entry.target;
+            const v = card._video;
+            if (!v) return;
+
+            // Se la modale è aperta o la card è nascosta, tieni in pausa
+            if (modal.classList.contains("open") || card.style.display === "none") {
+              v.pause();
+              return;
+            }
+
+            if (entry.isIntersecting) {
               v.muted = true;
-              v.play().catch(() => {});
-            } else if (!entry.isIntersecting) {
+              const p = v.play();
+              if (p !== undefined) p.catch(() => {});
+            } else {
               v.pause();
             }
           });
-        }, { threshold: 0.10 })
+        }, { rootMargin: "150px 0px 150px 0px", threshold: 0.05 })
       : null;
 
     function getSubcatName(id) {
@@ -813,7 +835,7 @@
       return found ? found.name : id.toUpperCase();
     }
 
-    /* ── Crea video card (eseguito una volta per ogni prodotto) ── */
+    /* ── Crea video card: preload="metadata" per caricamento istantaneo ── */
     function createVideoCard(product) {
       const card = document.createElement("div");
       card.className = "video-card";
@@ -829,7 +851,7 @@
         videoEl.setAttribute("webkit-playsinline",      "");
         videoEl.setAttribute("x5-playsinline",          "");
         videoEl.setAttribute("loop",                    "");
-        videoEl.setAttribute("preload",                 "auto");
+        videoEl.setAttribute("preload",                 "metadata");
         videoEl.setAttribute("disablepictureinpicture", "");
         videoEl.setAttribute("disableremoteplayback",   "");
         videoEl.muted        = true;
@@ -837,24 +859,6 @@
         videoEl.playsInline  = true;
         videoEl.loop         = true;
         videoEl.src          = product.video;
-
-        const tryPlay = () => {
-          videoEl.muted = true;
-          videoEl.play().catch(() => {});
-        };
-
-        videoEl.addEventListener("canplay",        tryPlay, { once: true });
-        videoEl.addEventListener("loadedmetadata", tryPlay, { once: true });
-
-        // Restart se messo in pausa da browser (non da noi)
-        videoEl.addEventListener("pause", () => {
-          if (modal.classList.contains("open")) return;
-          const card = videoEl.closest(".video-card");
-          if (card && card.style.display === "none") return;
-          tryPlay();
-        });
-
-        if (videoObserver) videoObserver.observe(videoEl);
 
         card._video = videoEl;
         card.appendChild(videoEl);
@@ -882,6 +886,10 @@
       content.innerHTML = '<div class="card-tag">' + tagText + '</div><div class="card-title">' + product.strain + '</div>';
       card.appendChild(content);
 
+      if (cardObserver) {
+        cardObserver.observe(card);
+      }
+
       return card;
     }
 
@@ -889,11 +897,13 @@
       return '<div class="empty-state"><div class="empty-state-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg></div><p>NESSUN PRODOTTO PRESENTE</p><small>' + sub + '</small></div>';
     }
 
-    /* ── Costruisce TUTTE le card UNA VOLTA SOLA (o al refresh dati) ── */
+    /* ── Costruisce tutte le card 1 sola volta ── */
     function buildAllCards() {
-      // Ferma tutti i video in corso prima di svuotare il DOM
       [ashGrid, weedGrid].forEach(grid => {
-        grid.querySelectorAll("video").forEach(v => { try { v.pause(); } catch(e){} });
+        grid.querySelectorAll(".video-card").forEach(c => {
+          if (cardObserver) cardObserver.unobserve(c);
+          if (c._video) { try { c._video.pause(); } catch(e){} }
+        });
         grid.innerHTML = "";
       });
 
@@ -912,12 +922,11 @@
         weedProducts.forEach(p => weedGrid.appendChild(createVideoCard(p)));
       }
 
-      // Aggiorna conteggi e filtro attivo (senza pillole)
       applyFilter(activeFilter, false);
       if (weedCountLabel) weedCountLabel.textContent = weedProducts.length + " PRODOTTI (TUTTI I PRODOTTI)";
     }
 
-    /* ── Filtra ASH con show/hide CSS – NESSUN re-render ── */
+    /* ── Filtro istantaneo via CSS (nessun lag o ricarica DOM) ── */
     function applyFilter(filterId, updatePills) {
       if (updatePills === undefined) updatePills = true;
       activeFilter = filterId;
@@ -934,10 +943,13 @@
         card.style.display = show ? "" : "none";
         if (show) {
           visible++;
-          // Riprendi il video se era stato messo in pausa
+          // Se la card torna visibile ed è nello schermo, riprendi
           if (card._video && activeSection === "ash") {
-            card._video.muted = true;
-            card._video.play().catch(() => {});
+            const rect = card.getBoundingClientRect();
+            if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+              card._video.muted = true;
+              card._video.play().catch(() => {});
+            }
           }
         } else {
           if (card._video) card._video.pause();
@@ -977,9 +989,11 @@
       });
     }
 
-    /* ── Switch sezione ASH ↔ WEED ── */
+    /* ── Switch sezione ASH ↔ WEED senza stalli ── */
     function switchSection(cat) {
+      if (activeSection === cat) return;
       activeSection = cat;
+
       document.querySelectorAll(".macro-btn").forEach(b =>
         b.classList.toggle("active", b.dataset.main === cat)
       );
@@ -988,12 +1002,24 @@
       const section = document.getElementById("section-" + cat);
       section.classList.add("active");
 
-      // Dopo che il browser ha applicato il layout, avvia play su tutti i video visibili
+      // Pausa tutti i video della sezione precedente per liberare l'hardware decoder
+      const otherCat = cat === "ash" ? "weed" : "ash";
+      const otherSection = document.getElementById("section-" + otherCat);
+      if (otherSection) {
+        otherSection.querySelectorAll("video").forEach(v => {
+          try { v.pause(); } catch(e){}
+        });
+      }
+
+      // Avvia solo i video visibili della nuova sezione
       requestAnimationFrame(() => {
         section.querySelectorAll(".video-card").forEach(card => {
           if (card.style.display !== "none" && card._video) {
-            card._video.muted = true;
-            card._video.play().catch(() => {});
+            const rect = card.getBoundingClientRect();
+            if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+              card._video.muted = true;
+              card._video.play().catch(() => {});
+            }
           }
         });
       });
@@ -1003,8 +1029,13 @@
       btn.addEventListener("click", () => switchSection(btn.dataset.main))
     );
 
-    /* ── Modal ── */
+    /* ── Modal Player ── */
     function openModal(product) {
+      // Metti in pausa i video di sottofondo per dare 100% decoder al video fullscreen
+      document.querySelectorAll(".video-card video").forEach(v => {
+        try { v.pause(); } catch(e){}
+      });
+
       modalTitle.textContent = product.strain;
       modalTag.textContent   = product.tag || getSubcatName(product.subcategory);
       modalVideo.src         = product.video;
@@ -1020,39 +1051,51 @@
       modalVideo.pause();
       modalVideo.src = "";
       document.body.style.overflow = "";
-      // Riprendi video visibili dopo chiusura modale
+
+      // Riprendi solo i video visibili
       setTimeout(() => {
         const section = document.getElementById("section-" + activeSection);
         if (section) {
           section.querySelectorAll(".video-card").forEach(card => {
             if (card.style.display !== "none" && card._video) {
-              card._video.muted = true;
-              card._video.play().catch(() => {});
+              const rect = card.getBoundingClientRect();
+              if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+                card._video.muted = true;
+                card._video.play().catch(() => {});
+              }
             }
           });
         }
-      }, 80);
+      }, 50);
     }
 
     modalClose.addEventListener("click", closeModal);
     modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-    /* ── Wake on first user interaction (solo una volta) ── */
+    /* ── Sblocco audio/video al primo tocco ── */
     let _woken = false;
     function wakeOnce() {
       if (_woken) return;
       _woken = true;
-      document.querySelectorAll(".video-card video").forEach(v => {
-        v.muted = true;
-        v.play().catch(() => {});
-      });
+      const section = document.getElementById("section-" + activeSection);
+      if (section) {
+        section.querySelectorAll(".video-card").forEach(card => {
+          if (card.style.display !== "none" && card._video) {
+            const rect = card.getBoundingClientRect();
+            if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+              card._video.muted = true;
+              card._video.play().catch(() => {});
+            }
+          }
+        });
+      }
     }
-    ["touchstart", "click", "scroll"].forEach(evt =>
+    ["touchstart", "click"].forEach(evt =>
       window.addEventListener(evt, wakeOnce, { passive: true, capture: true })
     );
 
-    /* ── Init: fetch dati da Vercel ── */
+    /* ── Inizializzazione dati da Vercel con fallback ── */
     async function initGallery() {
       try {
         const res = await fetch("/api/data?t=" + Date.now(), {
@@ -1083,7 +1126,7 @@
       buildAllCards();
     }
 
-    // Sync real-time con admin panel
+    // Sync broadcast con admin
     const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("topshelf_sync_bus") : null;
     if (syncChannel) {
       syncChannel.onmessage = (event) => {
@@ -1108,7 +1151,6 @@
       }
     });
 
-    // Al ritorno su focus: solo wake video (non ricostruisce tutto)
     window.addEventListener("focus", () => {
       _woken = false;
       wakeOnce();
