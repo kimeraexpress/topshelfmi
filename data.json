@@ -1,22 +1,181 @@
 {
   "categories": {
     "ash": [
-      { "id": "static", "name": "STATIC" },
-      { "id": "fresh-frozen", "name": "FRESH FROZEN" },
-      { "id": "dry-sift", "name": "DRY SIFT" },
-      { "id": "mousse", "name": "MOUSSE" },
-      { "id": "work", "name": "WORK" }
+      {
+        "id": "static",
+        "name": "STATIC"
+      },
+      {
+        "id": "fresh-frozen",
+        "name": "FRESH FROZEN"
+      },
+      {
+        "id": "dry-sift",
+        "name": "DRY SIFT"
+      },
+      {
+        "id": "mousse",
+        "name": "MOUSSE"
+      },
+      {
+        "id": "work",
+        "name": "WORK"
+      },
+      {
+        "id": "plasma-static",
+        "name": "PLASMA"
+      },
+      {
+        "id": "dry-sift-90u",
+        "name": "DRY SIFT 90U"
+      }
     ],
-    "weed": []
+    "weed": [
+      {
+        "id": "cali-spain",
+        "name": "CALI SPAIN"
+      },
+      {
+        "id": "cali-usa-midshelf",
+        "name": "CALI USA MIDSHELF"
+      }
+    ]
   },
   "products": [
+    {
+      "id": "prod_1793576789778",
+      "category": "ash",
+      "subcategory": "dry-sift-90u",
+      "strain": "TOO MUCH BANANA",
+      "tag": "BAD BERRED FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793576789778-5TqNDbwJjobMBa3coPROjRZQdGZO39.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793576789778-qIjXUZHmJknxiqbbxxOmPwBw6ptDhp.jpg"
+    },
+    {
+      "id": "prod_1793576266274",
+      "category": "ash",
+      "subcategory": "fresh-frozen",
+      "strain": "HASH BURGER X TROPICHERRY",
+      "tag": "FRUTA TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793576266274-2sCuD3vBApci3NkIjVoQwFz4QD57IF.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793576266274-FYA0yhS6xIElJAPkaZidtP01bm1bI2.jpg"
+    },
+    {
+      "id": "prod_1793575778107",
+      "category": "ash",
+      "subcategory": "fresh-frozen",
+      "strain": "HONEY BANANA",
+      "tag": "FRUTA TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793575778107-PABQsagtUsJA83T5SyAP7hytjm9Whu.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793575778107-usRR7bvJduhHPekhvjUB14RLamNtDF.jpg"
+    },
+    {
+      "id": "prod_1793575304516",
+      "category": "ash",
+      "subcategory": "fresh-frozen",
+      "strain": "FF X RIMOWA",
+      "tag": "FRUTA TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793575304516-gPPJ5wBKEZAEPjUj3dKuI1m4WO3niJ.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793575304516-EsO583jtrxOA7p7wqigaUKr2yr3bV7.jpg"
+    },
+    {
+      "id": "prod_1793574887435",
+      "category": "ash",
+      "subcategory": "fresh-frozen",
+      "strain": "BLACK CHERRY",
+      "tag": "FRUTA TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793574887435-Zmfxm4osQcgEX42oFgScWkmYQIUvmW.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793574887435-qnslPJh9rZHT9TOk1c7kAeflBkCSJc.jpg"
+    },
+    {
+      "id": "prod_1793574501195",
+      "category": "ash",
+      "subcategory": "fresh-frozen",
+      "strain": "FF X 24k",
+      "tag": "FRUTS TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793574501195-JvMRZy3RbjbfxbsVyp8uPlWQaBxIpy.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793574501195-5kDYihpueGL3sA8SyWXGfJmibToqmX.jpg"
+    },
+    {
+      "id": "prod_1793572883030",
+      "category": "ash",
+      "subcategory": "static",
+      "strain": "YELLOW MELON S1",
+      "tag": "FRUTA TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793572883030-7OG45VulJE8SHvYGjcLwlXshaWDAxs.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793572883030-5pDJ7n7wdV0ZTP2KM9mWfmpMdzkqKB.jpg"
+    },
+    {
+      "id": "prod_1793572230770",
+      "category": "ash",
+      "subcategory": "static",
+      "strain": "I DO RUNTZ",
+      "tag": "FRUTA TECH FARM",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793572230770-otJFnCLLa4oqhSYTIrp6DdtBP5rwNd.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793572230770-RatFlMBgZgIf29gY7AuBykS3D1Qzq5.jpg"
+    },
+    {
+      "id": "prod_1793571611055",
+      "category": "weed",
+      "subcategory": "cali-usa-midshelf",
+      "strain": "PAPAYA GUELA",
+      "tag": "CALI USA MIDSHELF",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793571611055-Ltk3VeMjRZ7FFZYq1iY0Cjs5CVBgX8.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793571611055-cpxmPGFsnmMSEdz7655C7Kmd3Hu9VJ.jpg"
+    },
+    {
+      "id": "prod_1793571144815",
+      "category": "weed",
+      "subcategory": "cali-spain",
+      "strain": "SUNSET SHERBET",
+      "tag": "CALI SPAIN",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793571144815-GfPxTiY4wIsfsspxkW7IUs2YkB5gVC.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793571144815-1qkbLPHrfHQamiN1540KhSj4a4WOmV.jpg"
+    },
+    {
+      "id": "prod_1793564861749",
+      "category": "ash",
+      "subcategory": "plasma-static",
+      "strain": "TANGERINE SQUEEZE",
+      "tag": "BLACK MAGIC",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793564861749-ZZnNTSWuyth6ux8oQVq5rTA4YGIZ2N.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793564861749-L00rTdfjFANvnJ06L1zTpWPKuRaCzz.jpg"
+    },
+    {
+      "id": "prod_1793564169320",
+      "category": "ash",
+      "subcategory": "plasma-static",
+      "strain": "TROPIC THUNDER",
+      "tag": "BLACK MAGIC",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793564169320-b6VLWo9TaZ45Sr7HM8Q51KhoIMXJES.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793564169320-N7wFFM1cFWyGW2QjYQDd0vpntzzXAf.jpg"
+    },
+    {
+      "id": "prod_1793563770894",
+      "category": "ash",
+      "subcategory": "static",
+      "strain": "ORANGE SQUEEZE",
+      "tag": "BLACK MAGIC",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793563770894-mp51xmqoWjeaRiNI1V851xwI4scsbl.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793563770894-gpVJQQEplzT9y9Hjwj9BE4Eo4N8iA6.jpg"
+    },
+    {
+      "id": "prod_1793557964352",
+      "category": "ash",
+      "subcategory": "static",
+      "strain": "TROPICHERRY",
+      "tag": "BLACK MAGIC",
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1793557964352-WMeLQS6wSMBlbFoH54MzEmwOtCP5a0.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1793557964352-amx64VOYRMi4WkjY3pV69WnMDKX51B.jpg"
+    },
     {
       "id": "prod_1",
       "category": "ash",
       "subcategory": "static",
       "strain": "BLACK MAGIC - FRIED BANANA",
       "tag": "STATIC",
-      "video": "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4"
+      "video": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/opt_prod_1-B6VuJx2NA1ExP4OTiTSovrtRwJqTCU.mp4",
+      "poster": "https://gkjyi2kecoojisvz.public.blob.vercel-storage.com/poster_prod_1-el9y1DEPaVWthHc7a7VGlwtVfom0h3.jpg"
     },
     {
       "id": "prod_2",
