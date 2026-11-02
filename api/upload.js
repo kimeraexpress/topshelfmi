@@ -28,7 +28,10 @@ export default async function handler(req, res) {
             'video/webm',
             'video/x-m4v',
             'video/ogg',
-            'video/3gpp'
+            'video/3gpp',
+            'image/jpeg',
+            'image/png',
+            'image/webp'
           ],
           addRandomSuffix: true,
         };
