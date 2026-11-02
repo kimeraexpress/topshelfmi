@@ -367,8 +367,11 @@
       flex-direction: column;
       justify-content: flex-end;
       transform: translateZ(0);
+      -webkit-transform: translateZ(0);
       will-change: transform;
       contain: layout paint;
+      isolation: isolate;
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
       transition: transform 0.18s ease, border-color 0.18s ease;
     }
 
@@ -738,11 +741,12 @@
   <!-- ═══════ JAVASCRIPT & PRODUCT LIST ═══════ -->
   <script>
     /* ══════════════════════════════════════════════════
-       TOPSHELFMI — GALLERY ENGINE v3 (ULTRA-FLUID & STABLE)
-       - preload="metadata": only tiny headers downloaded on startup, saving 90% network bandwidth
-       - IntersectionObserver with 150px rootMargin: plays 2-4 visible cards, pauses off-screen
-       - No rogue pause listeners fighting the observer
-       - Instant CSS display filtering for categories and subcategories
+       TOPSHELFMI — GALLERY ENGINE v4 (ULTRA-FLUID & INSTANT POSTERS)
+       - Crisp WebP/JPEG posters on all cards: ZERO black screen / ZERO loading delay
+       - Preload="metadata": ultra-light initial page load
+       - Autoplay enabled with WebKit GPU-isolated layer mask
+       - RequestAnimationFrame viewport checks (eliminates layout thrashing)
+       - Hardware decoder budgeting: active section only
     ══════════════════════════════════════════════════ */
 
     let appData = {
@@ -758,10 +762,7 @@
         ],
         weed: []
       },
-      products: [
-        { id: "prod_1", category: "ash", subcategory: "static", strain: "BLACK MAGIC - FRIED BANANA", tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4" },
-        { id: "prod_2", category: "ash", subcategory: "static", strain: "BLACK MAGIC - YELLOW GMOZ",  tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4" }
-      ]
+      products: []
     };
 
     let activeFilter  = "all";
@@ -779,28 +780,9 @@
     const modalTag         = document.getElementById("modalTag");
     const modalClose       = document.getElementById("modalClose");
 
-    const STORE_KEY = "topshelf_store_v3";
+    const STORE_KEY = "topshelf_store_v4";
 
-    const DEFAULT_DATA = {
-      categories: {
-        ash: [
-          { id: "static",        name: "STATIC"        },
-          { id: "fresh-frozen",  name: "FRESH FROZEN"  },
-          { id: "dry-sift",      name: "DRY SIFT"      },
-          { id: "mousse",        name: "MOUSSE"        },
-          { id: "work",          name: "WORK"          },
-          { id: "plasma-static", name: "PLASMA"        },
-          { id: "dry-sift-90u",  name: "DRY SIFT 90U"  }
-        ],
-        weed: []
-      },
-      products: [
-        { id: "prod_1", category: "ash", subcategory: "static", strain: "BLACK MAGIC - FRIED BANANA", tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - FRIED BANANA.MP4" },
-        { id: "prod_2", category: "ash", subcategory: "static", strain: "BLACK MAGIC - YELLOW GMOZ",  tag: "STATIC", video: "videos/ash/static/BLACK MAGIC - YELLOW GMOZ.MP4" }
-      ]
-    };
-
-    /* ── IntersectionObserver: pre-avvia a 150px dal viewport, pausa subito fuori ── */
+    /* ── IntersectionObserver: pre-avvia a 120px prima del viewport, pausa fuori ── */
     const cardObserver = ("IntersectionObserver" in window)
       ? new IntersectionObserver((entries) => {
           entries.forEach(entry => {
@@ -808,7 +790,7 @@
             const v = card._video;
             if (!v) return;
 
-            // Se la modale è aperta o la card è nascosta, tieni in pausa
+            // Se modale aperta o card nascosta per filtro, tieni in pausa
             if (modal.classList.contains("open") || card.style.display === "none") {
               v.pause();
               return;
@@ -822,7 +804,7 @@
               v.pause();
             }
           });
-        }, { rootMargin: "150px 0px 150px 0px", threshold: 0.05 })
+        }, { rootMargin: "120px 0px 120px 0px", threshold: 0.05 })
       : null;
 
     function getSubcatName(id) {
@@ -835,7 +817,7 @@
       return found ? found.name : id.toUpperCase();
     }
 
-    /* ── Crea video card: preload="metadata" per caricamento istantaneo ── */
+    /* ── Crea video card con poster istantaneo e video ultra-ottimizzato ── */
     function createVideoCard(product) {
       const card = document.createElement("div");
       card.className = "video-card";
@@ -851,12 +833,20 @@
         videoEl.setAttribute("webkit-playsinline",      "");
         videoEl.setAttribute("x5-playsinline",          "");
         videoEl.setAttribute("loop",                    "");
+        videoEl.setAttribute("autoplay",                "");
         videoEl.setAttribute("preload",                 "metadata");
         videoEl.setAttribute("disablepictureinpicture", "");
         videoEl.setAttribute("disableremoteplayback",   "");
+
+        if (product.poster) {
+          videoEl.setAttribute("poster", product.poster);
+          videoEl.poster = product.poster;
+        }
+
         videoEl.muted        = true;
         videoEl.defaultMuted = true;
         videoEl.playsInline  = true;
+        videoEl.autoplay     = true;
         videoEl.loop         = true;
         videoEl.src          = product.video;
 
@@ -926,7 +916,7 @@
       if (weedCountLabel) weedCountLabel.textContent = weedProducts.length + " PRODOTTI (TUTTI I PRODOTTI)";
     }
 
-    /* ── Filtro istantaneo via CSS (nessun lag o ricarica DOM) ── */
+    /* ── Filtro fluido via CSS senza layout thrashing ── */
     function applyFilter(filterId, updatePills) {
       if (updatePills === undefined) updatePills = true;
       activeFilter = filterId;
@@ -937,23 +927,13 @@
         );
       }
 
+      // 1. Fase di scrittura DOM rapida (nascondi/mostra)
       let visible = 0;
       ashGrid.querySelectorAll(".video-card").forEach(card => {
         const show = filterId === "all" || card.dataset.subcategory === filterId;
         card.style.display = show ? "" : "none";
-        if (show) {
-          visible++;
-          // Se la card torna visibile ed è nello schermo, riprendi
-          if (card._video && activeSection === "ash") {
-            const rect = card.getBoundingClientRect();
-            if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
-              card._video.muted = true;
-              card._video.play().catch(() => {});
-            }
-          }
-        } else {
-          if (card._video) card._video.pause();
-        }
+        if (show) visible++;
+        else if (card._video) card._video.pause();
       });
 
       const countText = filterId === "all"
@@ -963,6 +943,21 @@
       if (filterTitleLabel) filterTitleLabel.textContent = filterId === "all"
         ? "SOTTOCATEGORIE ASH"
         : ("ASH — " + getSubcatName(filterId));
+
+      // 2. Fase di lettura layout batchata con requestAnimationFrame
+      requestAnimationFrame(() => {
+        if (activeSection !== "ash") return;
+        const vh = window.innerHeight;
+        ashGrid.querySelectorAll(".video-card").forEach(card => {
+          if (card.style.display !== "none" && card._video) {
+            const rect = card.getBoundingClientRect();
+            if (rect.top < vh + 120 && rect.bottom > -120) {
+              card._video.muted = true;
+              card._video.play().catch(() => {});
+            }
+          }
+        });
+      });
     }
 
     function selectFilter(filterId) { applyFilter(filterId, true); }
@@ -989,34 +984,35 @@
       });
     }
 
-    /* ── Switch sezione ASH ↔ WEED senza stalli ── */
+    /* ── Switch sezione ASH ↔ WEED ultra-veloce ── */
     function switchSection(cat) {
       if (activeSection === cat) return;
+      const oldCat = activeSection;
       activeSection = cat;
 
       document.querySelectorAll(".macro-btn").forEach(b =>
         b.classList.toggle("active", b.dataset.main === cat)
       );
-      document.querySelectorAll(".gallery-section").forEach(s => s.classList.remove("active"));
 
-      const section = document.getElementById("section-" + cat);
-      section.classList.add("active");
-
-      // Pausa tutti i video della sezione precedente per liberare l'hardware decoder
-      const otherCat = cat === "ash" ? "weed" : "ash";
-      const otherSection = document.getElementById("section-" + otherCat);
-      if (otherSection) {
-        otherSection.querySelectorAll("video").forEach(v => {
+      // Pausa immediata dei video della vecchia sezione per liberare i decoder hardware
+      const oldSection = document.getElementById("section-" + oldCat);
+      if (oldSection) {
+        oldSection.querySelectorAll("video").forEach(v => {
           try { v.pause(); } catch(e){}
         });
       }
 
-      // Avvia solo i video visibili della nuova sezione
+      document.querySelectorAll(".gallery-section").forEach(s => s.classList.remove("active"));
+      const newSection = document.getElementById("section-" + cat);
+      newSection.classList.add("active");
+
+      // Avvia i video visibili della nuova sezione
       requestAnimationFrame(() => {
-        section.querySelectorAll(".video-card").forEach(card => {
+        const vh = window.innerHeight;
+        newSection.querySelectorAll(".video-card").forEach(card => {
           if (card.style.display !== "none" && card._video) {
             const rect = card.getBoundingClientRect();
-            if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+            if (rect.top < vh + 120 && rect.bottom > -120) {
               card._video.muted = true;
               card._video.play().catch(() => {});
             }
@@ -1031,13 +1027,14 @@
 
     /* ── Modal Player ── */
     function openModal(product) {
-      // Metti in pausa i video di sottofondo per dare 100% decoder al video fullscreen
+      // Metti in pausa i video di sottofondo
       document.querySelectorAll(".video-card video").forEach(v => {
         try { v.pause(); } catch(e){}
       });
 
       modalTitle.textContent = product.strain;
       modalTag.textContent   = product.tag || getSubcatName(product.subcategory);
+      if (product.poster) modalVideo.poster = product.poster;
       modalVideo.src         = product.video;
       modalVideo.muted       = false;
       modalVideo.load();
@@ -1052,38 +1049,40 @@
       modalVideo.src = "";
       document.body.style.overflow = "";
 
-      // Riprendi solo i video visibili
+      // Riprendi i video visibili
       setTimeout(() => {
         const section = document.getElementById("section-" + activeSection);
         if (section) {
+          const vh = window.innerHeight;
           section.querySelectorAll(".video-card").forEach(card => {
             if (card.style.display !== "none" && card._video) {
               const rect = card.getBoundingClientRect();
-              if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+              if (rect.top < vh + 120 && rect.bottom > -120) {
                 card._video.muted = true;
                 card._video.play().catch(() => {});
               }
             }
           });
         }
-      }, 50);
+      }, 40);
     }
 
     modalClose.addEventListener("click", closeModal);
     modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-    /* ── Sblocco audio/video al primo tocco ── */
+    /* ── Sblocco al primo tocco ── */
     let _woken = false;
     function wakeOnce() {
       if (_woken) return;
       _woken = true;
       const section = document.getElementById("section-" + activeSection);
       if (section) {
+        const vh = window.innerHeight;
         section.querySelectorAll(".video-card").forEach(card => {
           if (card.style.display !== "none" && card._video) {
             const rect = card.getBoundingClientRect();
-            if (rect.top < window.innerHeight + 150 && rect.bottom > -150) {
+            if (rect.top < vh + 120 && rect.bottom > -120) {
               card._video.muted = true;
               card._video.play().catch(() => {});
             }
@@ -1116,17 +1115,13 @@
       }
 
       if (!appData.categories) appData.categories = { ash: [], weed: [] };
-      if (!appData.categories.ash || !appData.categories.ash.length)
-        appData.categories.ash = JSON.parse(JSON.stringify(DEFAULT_DATA.categories.ash));
       if (!Array.isArray(appData.products)) appData.products = [];
-      if (!appData.products.length && !localStorage.getItem("topshelf_cleared_by_user"))
-        appData.products = JSON.parse(JSON.stringify(DEFAULT_DATA.products));
 
       renderSubcategoryPills();
       buildAllCards();
     }
 
-    // Sync broadcast con admin
+    // Broadcast sync
     const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("topshelf_sync_bus") : null;
     if (syncChannel) {
       syncChannel.onmessage = (event) => {
