@@ -741,12 +741,12 @@
   <!-- ═══════ JAVASCRIPT & PRODUCT LIST ═══════ -->
   <script>
     /* ══════════════════════════════════════════════════
-       TOPSHELFMI — GALLERY ENGINE v4 (ULTRA-FLUID & INSTANT POSTERS)
-       - Crisp WebP/JPEG posters on all cards: ZERO black screen / ZERO loading delay
-       - Preload="metadata": ultra-light initial page load
-       - Autoplay enabled with WebKit GPU-isolated layer mask
-       - RequestAnimationFrame viewport checks (eliminates layout thrashing)
-       - Hardware decoder budgeting: active section only
+       TOPSHELFMI — GALLERY ENGINE v5
+       - Dual IntersectionObserver: buffers at 600px, plays at 100px
+       - preload="none" initially → minimal startup bandwidth
+       - bufferObserver starts downloading the video 600px before it's seen
+       - cardObserver calls play() only when actually visible (already buffered)
+       - Result: videos start immediately with zero stutter on any connection
     ══════════════════════════════════════════════════ */
 
     let appData = {
@@ -755,9 +755,9 @@
           { id: "static",        name: "STATIC"        },
           { id: "fresh-frozen",  name: "FRESH FROZEN"  },
           { id: "dry-sift",      name: "DRY SIFT"      },
-          { id: "mousse",        name: "MOUSSE"        },
-          { id: "work",          name: "WORK"          },
-          { id: "plasma-static", name: "PLASMA"        },
+          { id: "mousse",        name: "MOUSSE"         },
+          { id: "work",          name: "WORK"           },
+          { id: "plasma-static", name: "PLASMA"         },
           { id: "dry-sift-90u",  name: "DRY SIFT 90U"  }
         ],
         weed: []
@@ -780,23 +780,52 @@
     const modalTag         = document.getElementById("modalTag");
     const modalClose       = document.getElementById("modalClose");
 
-    const STORE_KEY = "topshelf_store_v4";
+    const STORE_KEY = "topshelf_store_v5";
 
-    /* ── IntersectionObserver: pre-avvia a 120px prima del viewport, pausa fuori ── */
+    /* ─────────────────────────────────────────────────────────
+       OBSERVER 1 — bufferObserver (600px pre-load margin)
+       Quando una card si avvicina al viewport, chiama load()
+       così il browser inizia a scaricare il video in anticipo.
+       Viene rimosso subito (once) per evitare trigger ripetuti.
+    ───────────────────────────────────────────────────────── */
+    const bufferObserver = ("IntersectionObserver" in window)
+      ? new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const card = entry.target;
+            const v = card._video;
+            if (!v || v._srcLoaded) return;
+            v._srcLoaded = true;
+            v.preload = "auto";
+            v.load();  // kick off the download while still off-screen
+            bufferObserver.unobserve(card);
+          });
+        }, { rootMargin: "600px 0px 600px 0px" })
+      : null;
+
+    /* ─────────────────────────────────────────────────────────
+       OBSERVER 2 — cardObserver (100px play margin)
+       Avvia play() quando la card è visibile, pausa quando esce.
+       A questo punto il video ha già scaricato 600px/~1s di dati.
+    ───────────────────────────────────────────────────────── */
     const cardObserver = ("IntersectionObserver" in window)
       ? new IntersectionObserver((entries) => {
           entries.forEach(entry => {
             const card = entry.target;
             const v = card._video;
             if (!v) return;
-
-            // Se modale aperta o card nascosta per filtro, tieni in pausa
             if (modal.classList.contains("open") || card.style.display === "none") {
               v.pause();
               return;
             }
-
             if (entry.isIntersecting) {
+              // Fallback: se bufferObserver non ha ancora caricato, fai ora
+              if (!v._srcLoaded) {
+                v._srcLoaded = true;
+                v.preload = "auto";
+                v.load();
+                if (bufferObserver) bufferObserver.unobserve(card);
+              }
               v.muted = true;
               const p = v.play();
               if (p !== undefined) p.catch(() => {});
@@ -804,7 +833,7 @@
               v.pause();
             }
           });
-        }, { rootMargin: "120px 0px 120px 0px", threshold: 0.05 })
+        }, { rootMargin: "100px 0px 100px 0px", threshold: 0.05 })
       : null;
 
     function getSubcatName(id) {
@@ -817,7 +846,12 @@
       return found ? found.name : id.toUpperCase();
     }
 
-    /* ── Crea video card con poster istantaneo e video ultra-ottimizzato ── */
+    /* ─────────────────────────────────────────────────────────
+       CREA VIDEO CARD
+       - preload="none" inizialmente (zero bandwidth waste)
+       - src assegnato subito (il browser non scarica con preload=none)
+       - poster assegnato per anteprima immediata senza nero
+    ───────────────────────────────────────────────────────── */
     function createVideoCard(product) {
       const card = document.createElement("div");
       card.className = "video-card";
@@ -832,23 +866,25 @@
         videoEl.setAttribute("playsinline",             "");
         videoEl.setAttribute("webkit-playsinline",      "");
         videoEl.setAttribute("x5-playsinline",          "");
-        videoEl.setAttribute("loop",                    "");
         videoEl.setAttribute("autoplay",                "");
-        videoEl.setAttribute("preload",                 "metadata");
+        videoEl.setAttribute("loop",                    "");
+        videoEl.setAttribute("preload",                 "none");
         videoEl.setAttribute("disablepictureinpicture", "");
         videoEl.setAttribute("disableremoteplayback",   "");
-
-        if (product.poster) {
-          videoEl.setAttribute("poster", product.poster);
-          videoEl.poster = product.poster;
-        }
 
         videoEl.muted        = true;
         videoEl.defaultMuted = true;
         videoEl.playsInline  = true;
         videoEl.autoplay     = true;
         videoEl.loop         = true;
-        videoEl.src          = product.video;
+        videoEl._srcLoaded   = false;
+
+        // Assegna src adesso: con preload=none il browser non scarica ancora nulla
+        videoEl.src = product.video;
+
+        if (product.poster) {
+          videoEl.poster = product.poster;
+        }
 
         card._video = videoEl;
         card.appendChild(videoEl);
@@ -859,6 +895,10 @@
         card.appendChild(badge);
 
         card.addEventListener("click", () => openModal(product));
+
+        // Registra su entrambi gli observer
+        if (bufferObserver) bufferObserver.observe(card);
+        if (cardObserver)   cardObserver.observe(card);
       } else {
         const ph = document.createElement("div");
         ph.className = "card-no-video";
@@ -876,10 +916,6 @@
       content.innerHTML = '<div class="card-tag">' + tagText + '</div><div class="card-title">' + product.strain + '</div>';
       card.appendChild(content);
 
-      if (cardObserver) {
-        cardObserver.observe(card);
-      }
-
       return card;
     }
 
@@ -887,11 +923,12 @@
       return '<div class="empty-state"><div class="empty-state-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg></div><p>NESSUN PRODOTTO PRESENTE</p><small>' + sub + '</small></div>';
     }
 
-    /* ── Costruisce tutte le card 1 sola volta ── */
+    /* Costruisce tutte le card una sola volta */
     function buildAllCards() {
       [ashGrid, weedGrid].forEach(grid => {
         grid.querySelectorAll(".video-card").forEach(c => {
-          if (cardObserver) cardObserver.unobserve(c);
+          if (bufferObserver) bufferObserver.unobserve(c);
+          if (cardObserver)   cardObserver.unobserve(c);
           if (c._video) { try { c._video.pause(); } catch(e){} }
         });
         grid.innerHTML = "";
@@ -916,7 +953,7 @@
       if (weedCountLabel) weedCountLabel.textContent = weedProducts.length + " PRODOTTI (TUTTI I PRODOTTI)";
     }
 
-    /* ── Filtro fluido via CSS senza layout thrashing ── */
+    /* Filtro ASH via CSS show/hide — zero DOM rebuild */
     function applyFilter(filterId, updatePills) {
       if (updatePills === undefined) updatePills = true;
       activeFilter = filterId;
@@ -927,7 +964,6 @@
         );
       }
 
-      // 1. Fase di scrittura DOM rapida (nascondi/mostra)
       let visible = 0;
       ashGrid.querySelectorAll(".video-card").forEach(card => {
         const show = filterId === "all" || card.dataset.subcategory === filterId;
@@ -944,16 +980,23 @@
         ? "SOTTOCATEGORIE ASH"
         : ("ASH — " + getSubcatName(filterId));
 
-      // 2. Fase di lettura layout batchata con requestAnimationFrame
+      // Avvia i video ora visibili dentro il viewport tramite rAF (no layout thrashing)
       requestAnimationFrame(() => {
         if (activeSection !== "ash") return;
         const vh = window.innerHeight;
         ashGrid.querySelectorAll(".video-card").forEach(card => {
           if (card.style.display !== "none" && card._video) {
             const rect = card.getBoundingClientRect();
-            if (rect.top < vh + 120 && rect.bottom > -120) {
-              card._video.muted = true;
-              card._video.play().catch(() => {});
+            if (rect.top < vh + 100 && rect.bottom > -100) {
+              const v = card._video;
+              if (!v._srcLoaded) {
+                v._srcLoaded = true;
+                v.preload = "auto";
+                v.load();
+                if (bufferObserver) bufferObserver.unobserve(card);
+              }
+              v.muted = true;
+              v.play().catch(() => {});
             }
           }
         });
@@ -962,7 +1005,6 @@
 
     function selectFilter(filterId) { applyFilter(filterId, true); }
 
-    /* ── Pills sottocategorie ── */
     function renderSubcategoryPills() {
       if (!ashPillsRow) return;
       ashPillsRow.innerHTML = "";
@@ -984,7 +1026,6 @@
       });
     }
 
-    /* ── Switch sezione ASH ↔ WEED ultra-veloce ── */
     function switchSection(cat) {
       if (activeSection === cat) return;
       const oldCat = activeSection;
@@ -994,7 +1035,7 @@
         b.classList.toggle("active", b.dataset.main === cat)
       );
 
-      // Pausa immediata dei video della vecchia sezione per liberare i decoder hardware
+      // Pausa subito i video della sezione precedente
       const oldSection = document.getElementById("section-" + oldCat);
       if (oldSection) {
         oldSection.querySelectorAll("video").forEach(v => {
@@ -1006,15 +1047,22 @@
       const newSection = document.getElementById("section-" + cat);
       newSection.classList.add("active");
 
-      // Avvia i video visibili della nuova sezione
+      // Avvia i video visibili nella nuova sezione
       requestAnimationFrame(() => {
         const vh = window.innerHeight;
         newSection.querySelectorAll(".video-card").forEach(card => {
           if (card.style.display !== "none" && card._video) {
             const rect = card.getBoundingClientRect();
-            if (rect.top < vh + 120 && rect.bottom > -120) {
-              card._video.muted = true;
-              card._video.play().catch(() => {});
+            if (rect.top < vh + 100 && rect.bottom > -100) {
+              const v = card._video;
+              if (!v._srcLoaded) {
+                v._srcLoaded = true;
+                v.preload = "auto";
+                v.load();
+                if (bufferObserver) bufferObserver.unobserve(card);
+              }
+              v.muted = true;
+              v.play().catch(() => {});
             }
           }
         });
@@ -1025,18 +1073,15 @@
       btn.addEventListener("click", () => switchSection(btn.dataset.main))
     );
 
-    /* ── Modal Player ── */
     function openModal(product) {
-      // Metti in pausa i video di sottofondo
       document.querySelectorAll(".video-card video").forEach(v => {
         try { v.pause(); } catch(e){}
       });
-
       modalTitle.textContent = product.strain;
       modalTag.textContent   = product.tag || getSubcatName(product.subcategory);
       if (product.poster) modalVideo.poster = product.poster;
-      modalVideo.src         = product.video;
-      modalVideo.muted       = false;
+      modalVideo.src   = product.video;
+      modalVideo.muted = false;
       modalVideo.load();
       modalVideo.play().catch(() => {});
       modal.classList.add("open");
@@ -1048,22 +1093,19 @@
       modalVideo.pause();
       modalVideo.src = "";
       document.body.style.overflow = "";
-
-      // Riprendi i video visibili
       setTimeout(() => {
         const section = document.getElementById("section-" + activeSection);
-        if (section) {
-          const vh = window.innerHeight;
-          section.querySelectorAll(".video-card").forEach(card => {
-            if (card.style.display !== "none" && card._video) {
-              const rect = card.getBoundingClientRect();
-              if (rect.top < vh + 120 && rect.bottom > -120) {
-                card._video.muted = true;
-                card._video.play().catch(() => {});
-              }
+        if (!section) return;
+        const vh = window.innerHeight;
+        section.querySelectorAll(".video-card").forEach(card => {
+          if (card.style.display !== "none" && card._video) {
+            const rect = card.getBoundingClientRect();
+            if (rect.top < vh + 100 && rect.bottom > -100) {
+              card._video.muted = true;
+              card._video.play().catch(() => {});
             }
-          });
-        }
+          }
+        });
       }, 40);
     }
 
@@ -1071,30 +1113,35 @@
     modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-    /* ── Sblocco al primo tocco ── */
+    /* Sblocco al primo tocco (iOS Safari policy) */
     let _woken = false;
     function wakeOnce() {
       if (_woken) return;
       _woken = true;
       const section = document.getElementById("section-" + activeSection);
-      if (section) {
-        const vh = window.innerHeight;
-        section.querySelectorAll(".video-card").forEach(card => {
-          if (card.style.display !== "none" && card._video) {
-            const rect = card.getBoundingClientRect();
-            if (rect.top < vh + 120 && rect.bottom > -120) {
-              card._video.muted = true;
-              card._video.play().catch(() => {});
+      if (!section) return;
+      const vh = window.innerHeight;
+      section.querySelectorAll(".video-card").forEach(card => {
+        if (card.style.display !== "none" && card._video) {
+          const rect = card.getBoundingClientRect();
+          if (rect.top < vh + 100 && rect.bottom > -100) {
+            const v = card._video;
+            if (!v._srcLoaded) {
+              v._srcLoaded = true;
+              v.preload = "auto";
+              v.load();
+              if (bufferObserver) bufferObserver.unobserve(card);
             }
+            v.muted = true;
+            v.play().catch(() => {});
           }
-        });
-      }
+        }
+      });
     }
     ["touchstart", "click"].forEach(evt =>
       window.addEventListener(evt, wakeOnce, { passive: true, capture: true })
     );
 
-    /* ── Inizializzazione dati da Vercel con fallback ── */
     async function initGallery() {
       try {
         const res = await fetch("/api/data?t=" + Date.now(), {
@@ -1121,7 +1168,6 @@
       buildAllCards();
     }
 
-    // Broadcast sync
     const syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel("topshelf_sync_bus") : null;
     if (syncChannel) {
       syncChannel.onmessage = (event) => {
