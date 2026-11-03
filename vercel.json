@@ -8,6 +8,12 @@
       "destination": "/admin.html"
     }
   ],
+  "functions": {
+    "api/convert.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  },
   "headers": [
     {
       "source": "/data.json",

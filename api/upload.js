@@ -28,13 +28,15 @@ export default async function handler(req, res) {
             'video/webm',
             'video/x-m4v',
             'video/ogg',
-            'video/3gpp'
+            'video/3gpp',
+            'image/jpeg',
+            'image/jpg',
           ],
           addRandomSuffix: true,
         };
       },
       onUploadCompleted: async ({ blob }) => {
-        console.log('Video caricato con successo su Vercel Blob:', blob.url);
+        console.log('File caricato con successo su Vercel Blob:', blob.url);
       },
     });
 
