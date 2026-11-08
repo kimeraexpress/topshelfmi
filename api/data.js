@@ -4,6 +4,8 @@ import path from 'path';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('CDN-Cache-Control', 'no-store');
+  res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
@@ -34,7 +36,13 @@ export default async function handler(req, res) {
       const blobItem = blobs.find(b => b.pathname === 'data.json');
 
       if (blobItem) {
-        const remoteRes = await fetch(`${blobItem.url}?t=${Date.now()}`);
+        const remoteRes = await fetch(`${blobItem.url}?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
         if (remoteRes.ok) {
           const data = await remoteRes.json();
           return res.status(200).json(data);

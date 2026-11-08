@@ -177,7 +177,13 @@ export default async function handler(req, res) {
       const { blobs } = await list({ prefix: 'data.json' });
       const blobItem = blobs.find(b => b.pathname === 'data.json');
       if (blobItem) {
-        const remoteRes = await fetch(`${blobItem.url}?t=${Date.now()}`);
+        const remoteRes = await fetch(`${blobItem.url}?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
         if (remoteRes.ok) {
           catalog = await remoteRes.json();
         }
@@ -230,6 +236,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      catalog,
       videoUrl: mp4Blob.url,
       posterUrl,
       productId: existingIdx !== -1 ? productId : tmpId,

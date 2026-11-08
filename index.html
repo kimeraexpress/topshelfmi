@@ -1192,9 +1192,15 @@
       }
     });
 
+    let _lastFocusCheck = 0;
     window.addEventListener("focus", () => {
       _woken = false;
       wakeOnce();
+      const now = Date.now();
+      if (now - _lastFocusCheck > 4000) {
+        _lastFocusCheck = now;
+        initGallery();
+      }
     });
 
     initGallery();

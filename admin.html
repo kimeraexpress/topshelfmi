@@ -1164,9 +1164,9 @@
         saveStore(appData);
       }
 
+      populateFilterSelect();
       renderProducts();
       renderCategories();
-      populateFilterSelect();
       updateSubcatOptions(currentMacro);
       if (forceNetwork) showToast("Dati ricaricati dal server!");
     }
@@ -1176,9 +1176,9 @@
       localStorage.removeItem("topshelf_cleared_by_user");
       appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
       saveStore(appData);
+      populateFilterSelect();
       renderProducts();
       renderCategories();
-      populateFilterSelect();
       updateSubcatOptions(currentMacro);
       showToast("Ripristinati dati predefiniti!");
     }
@@ -1564,7 +1564,18 @@
             <span style="font-weight:400;color:var(--text-dim);font-size:0.72rem;">${convertRes.inputMB} MB → ${convertRes.outputMB} MB · 1080p H.264 FastStart</span>`;
           resultBox.classList.add('show');
 
-          await loadData();
+          if (convertRes && convertRes.catalog) {
+            saveStore(convertRes.catalog);
+            const filterSel = document.getElementById("filterSubcatSelect");
+            if (filterSel) filterSel.value = "all";
+            const searchInput = document.getElementById("searchStrain");
+            if (searchInput) searchInput.value = "";
+            populateFilterSelect();
+            renderProducts();
+            renderCategories();
+          } else {
+            await loadData(true);
+          }
           showToast('✅ ' + strain + ' pubblicato in 1080p!');
           closeProductModal();
 
